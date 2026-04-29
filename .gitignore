@@ -1,0 +1,28 @@
+# Dataset audio files (too large for GitHub)
+Asthma Detection Dataset Version 2/
+uploads/
+
+# Generated output files
+ResNet18_results/spectrograms/
+ResNet18_results/summary_txt/
+
+# Model checkpoint (42 MB - uncomment to exclude, or use Git LFS)
+# ResNet18_results/checkpoints/best_resnet18.pth
+
+# Local config
+.claude/
+*.local.json
+
+# Sensitive files
+*API Key*.txt
+*.env
+.env*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db

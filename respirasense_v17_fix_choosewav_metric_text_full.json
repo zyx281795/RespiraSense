@@ -1,0 +1,1269 @@
+[
+  {
+    "id": "0bb10a78a4de5a69",
+    "type": "tab",
+    "label": "F RespiraSense Clinical Console",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "bb9cc4379ef2a830",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "POST /api/infer 上傳推論",
+    "url": "/api/infer",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 80,
+    "wires": [
+      [
+        "a245f1b23894cc6a"
+      ]
+    ]
+  },
+  {
+    "id": "a245f1b23894cc6a",
+    "type": "json",
+    "z": "0bb10a78a4de5a69",
+    "name": "解析請求 JSON",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 390,
+    "y": 80,
+    "wires": [
+      [
+        "b1f328bb66586909"
+      ]
+    ]
+  },
+  {
+    "id": "b1f328bb66586909",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "驗證並準備 WAV",
+    "func": "let body = msg.payload || {};\n\nif (typeof body === \"string\") {\n    try {\n        body = JSON.parse(body);\n    } catch (e) {\n        msg.statusCode = 400;\n        msg.headers = {\n            \"Access-Control-Allow-Origin\": \"*\"\n        };\n        msg.payload = {\n            ok: false,\n            error: \"請求 JSON 格式錯誤\"\n        };\n        return [null, msg];\n    }\n}\n\nif (!body.file_name || !body.audio_base64) {\n    msg.statusCode = 400;\n    msg.headers = {\n        \"Access-Control-Allow-Origin\": \"*\"\n    };\n    msg.payload = {\n        ok: false,\n        error: \"缺少 file_name 或 audio_base64\",\n        debug_payload_type: typeof msg.payload,\n        debug_payload_preview: typeof msg.payload === \"string\" ? msg.payload.substring(0, 200) : msg.payload\n    };\n    return [null, msg];\n}\n\nconst safeName = String(body.file_name).replace(/[^\\w.\\-]/g, \"_\");\n\nif (!safeName.toLowerCase().endsWith(\".wav\")) {\n    msg.statusCode = 400;\n    msg.headers = {\n        \"Access-Control-Allow-Origin\": \"*\"\n    };\n    msg.payload = {\n        ok: false,\n        error: \"只接受 .wav 檔案\"\n    };\n    return [null, msg];\n}\n\nlet audioBase64 = String(body.audio_base64);\n\nif (audioBase64.includes(\",\")) {\n    audioBase64 = audioBase64.split(\",\").pop();\n}\n\nconst ts = Date.now();\n\nmsg.file_name = safeName;\nconst baseDir = process.env.RESPIRASENSE_ROOT || require('path').join(__dirname, '..');\nmsg.wav_path = require('path').join(baseDir, \"uploads\", ts + \"_\" + safeName);\nmsg.filename = msg.wav_path;\nmsg.payload = Buffer.from(audioBase64, \"base64\");\n\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 80,
+    "wires": [
+      [
+        "1030cf7ab8e7f38a"
+      ],
+      [
+        "0293586db94d4f84"
+      ]
+    ]
+  },
+  {
+    "id": "1030cf7ab8e7f38a",
+    "type": "file",
+    "z": "0bb10a78a4de5a69",
+    "name": "寫入上傳 WAV",
+    "filename": "filename",
+    "filenameType": "msg",
+    "appendNewline": false,
+    "createDir": true,
+    "overwriteFile": "true",
+    "encoding": "none",
+    "x": 910,
+    "y": 80,
+    "wires": [
+      [
+        "054ec4242d9b1c23"
+      ]
+    ]
+  },
+  {
+    "id": "054ec4242d9b1c23",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立 Python 參數",
+    "func": "const baseDir = process.env.RESPIRASENSE_ROOT || require('path').join(__dirname, '..');\nconst scriptPath = require('path').join(baseDir, \"ResNet18+Log-MelSpectrogram.py\");\nmsg.payload = `\"${scriptPath}\" \"${msg.wav_path}\"`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1160,
+    "y": 80,
+    "wires": [
+      [
+        "ea0be20813d55edd"
+      ]
+    ]
+  },
+  {
+    "id": "ea0be20813d55edd",
+    "type": "exec",
+    "z": "0bb10a78a4de5a69",
+    "command": "$(PYTHON_EXE)",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "",
+    "winHide": false,
+    "oldrc": false,
+    "name": "執行 Python 單筆推論",
+    "x": 1420,
+    "y": 80,
+    "wires": [
+      [
+        "802cba3483d64c99"
+      ],
+      [
+        "08770a739285ee43"
+      ],
+      []
+    ]
+  },
+  {
+    "id": "08770a739285ee43",
+    "type": "debug",
+    "z": "0bb10a78a4de5a69",
+    "name": "除錯：Python stderr",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1430,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "802cba3483d64c99",
+    "type": "json",
+    "z": "0bb10a78a4de5a69",
+    "name": "解析模型 JSON",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 1660,
+    "y": 80,
+    "wires": [
+      [
+        "0f68b146cc2ef3a2"
+      ]
+    ]
+  },
+  {
+    "id": "0f68b146cc2ef3a2",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "檢查模型結果",
+    "func": "function clinicalLabel(v) {\n    const raw = String(v || \"\").trim();\n    const key = raw.toLowerCase().replace(/[^a-z0-9]/g, \"\");\n\n    const map = {\n        \"asthma\": \"Asthma-compatible Airway Pattern\",\n        \"bronchialasthma\": \"Asthma-compatible Airway Pattern\",\n        \"asthmacompatibleairwaypattern\": \"Asthma-compatible Airway Pattern\",\n\n        \"bronchial\": \"Bronchial Respiratory Sound Abnormality\",\n        \"bronchitis\": \"Bronchial Respiratory Sound Abnormality\",\n        \"bronchialrespiratorysoundabnormality\": \"Bronchial Respiratory Sound Abnormality\",\n\n        \"copd\": \"Chronic Obstructive Pulmonary Disease\",\n        \"chronicobstructivepulmonarydisease\": \"Chronic Obstructive Pulmonary Disease\",\n\n        \"healthy\": \"Normal Respiratory Sound Pattern\",\n        \"normal\": \"Normal Respiratory Sound Pattern\",\n        \"normalrespiratorysoundpattern\": \"Normal Respiratory Sound Pattern\",\n        \"healthyrespiratoryaudiopattern\": \"Normal Respiratory Sound Pattern\",\n\n        \"pneumonia\": \"Pneumonia-compatible Respiratory Pattern\",\n        \"pneumoniacompatiblerespiratorypattern\": \"Pneumonia-compatible Respiratory Pattern\"\n    };\n\n    return map[key] || raw || \"Unknown Respiratory Class\";\n}\n\nfunction normalizeTop3(top3Json) {\n    let arr = [];\n    try {\n        arr = JSON.parse(top3Json || \"[]\");\n    } catch (e) {\n        arr = [];\n    }\n\n    if (!Array.isArray(arr)) {\n        arr = [];\n    }\n\n    return arr.map(function(item, index) {\n        const rawClass = item.class_raw || item.raw_class || item.label_raw || item.class || item.label || item.name || item.predicted_class || \"\";\n        const displayClass = item.class || item.display_class || clinicalLabel(rawClass);\n\n        return {\n            rank: Number(item.rank || index + 1),\n            class_raw: rawClass,\n            class: clinicalLabel(displayClass),\n            score: Number(item.score || item.probability || item.confidence || 0)\n        };\n    });\n}\n\nconst r = msg.payload || {};\n\nif (r.ok !== true) {\n    msg.statusCode = 500;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = {\n        ok: false,\n        error: r.error || \"模型推論失敗\"\n    };\n    return [null, msg];\n}\n\n/*\n  Preserve upload metadata from the previous nodes.\n*/\nif (!r.file_name && msg.file_name) {\n    r.file_name = msg.file_name;\n}\n\nif (!r.wav_path && msg.wav_path) {\n    r.wav_path = msg.wav_path;\n}\n\nif (!r.audio_path && msg.wav_path) {\n    r.audio_path = msg.wav_path;\n}\n\n/*\n  Preserve Python-side raw/display fields if the updated Python script already provides them.\n  Older Python script only returns predicted_class, so this remains backward-compatible.\n*/\nconst rawClass = r.predicted_class_raw || r.primary_impression_raw || r.raw_predicted_class || r.predicted_class || \"\";\nconst displayClass = r.primary_impression || r.predicted_class || rawClass;\n\nr.predicted_class_raw = rawClass;\nr.primary_impression_raw = r.primary_impression_raw || rawClass;\nr.predicted_class = clinicalLabel(displayClass);\nr.primary_impression = r.primary_impression || r.predicted_class;\n\nconst mappedTop3 = normalizeTop3(r.top3_json);\nr.top3_json = JSON.stringify(mappedTop3);\n\nif (!r.confidence_level) {\n    const c = Number(r.confidence || 0);\n    r.confidence_level = c >= 0.80 ? \"high_confidence\" : (c >= 0.50 ? \"moderate_confidence\" : \"low_confidence\");\n}\n\nif (!r.review_reason && r.review_flag) {\n    r.review_reason = r.review_flag;\n}\n\nmsg.payload = r;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1880,
+    "y": 80,
+    "wires": [
+      [
+        "229b30208aa43610"
+      ],
+      [
+        "0293586db94d4f84"
+      ]
+    ]
+  },
+  {
+    "id": "229b30208aa43610",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立 Gemini 臨床摘要請求",
+    "func": "const apiKey = env.get(\"GEMINI_API_KEY\");\nconst r = msg.payload || {};\nmsg.model_result = r;\n\nif (!apiKey) {\n    r.gemini_used = false;\n    r.summary_source = \"model_fallback\";\n    r.gemini_error = \"GEMINI_API_KEY was not detected by Node-RED, so Gemini was skipped.\";\n    r.gemini_debug = {\n        stage: \"build_gemini_request\",\n        key_detected: false,\n        advice: \"Start Node-RED from the same PowerShell window after setting $env:GEMINI_API_KEY.\"\n    };\n    msg.payload = r;\n    msg.skip_gemini = true;\n    return [null, msg];\n}\n\nlet top3 = [];\ntry {\n    top3 = JSON.parse(r.top3_json || \"[]\");\n} catch (e) {\n    top3 = [];\n}\n\nconst confidence = Number(r.confidence || 0);\nconst abnormalProbability = Number(r.abnormal_probability || 0);\nconst healthyProbability = Number(r.healthy_probability || 0);\n\nfunction getClinicalFocus(cls) {\n    const key = String(cls || \"\").toLowerCase();\n\n    if (key.includes(\"pneumonia\")) {\n        return \"Focus on fever, cough, sputum, dyspnea, SpO2, respiratory rate, temperature, auscultation correlation, and chest imaging or inflammatory markers only if clinically warranted.\";\n    }\n\n    if (key.includes(\"chronic obstructive\") || key.includes(\"copd\")) {\n        return \"Focus on chronic cough, sputum, dyspnea, wheeze, smoking or exposure history, SpO2, respiratory rate, auscultation, and spirometry context if clinically appropriate.\";\n    }\n\n    if (key.includes(\"asthma\")) {\n        return \"Focus on episodic wheeze, cough, chest tightness, dyspnea, triggers, prior asthma history, SpO2, respiratory rate, auscultation, and peak-flow or spirometry context if clinically appropriate.\";\n    }\n\n    if (key.includes(\"bronchial\")) {\n        return \"Focus on cough, sputum, wheeze, rhonchi, airway secretion, dyspnea, SpO2, respiratory rate, auscultation correlation, recording quality, and spirometry context if obstruction is suspected.\";\n    }\n\n    if (key.includes(\"healthy\") || key.includes(\"normal\")) {\n        return \"Focus on recording quality and whether symptoms, abnormal vital signs, or auscultation findings are discordant with a low-abnormal audio pattern.\";\n    }\n\n    return \"Focus on cough, sputum, wheeze, fever, dyspnea, SpO2, respiratory rate, auscultation findings, and prior respiratory history.\";\n}\n\nconst clinicalFocus = getClinicalFocus(r.predicted_class || r.predicted_class_raw);\n\nmsg.gemini_debug = {\n    stage: \"build_gemini_request\",\n    key_detected: true,\n    key_length: String(apiKey).length,\n    model: \"gemini-3.1-flash-lite-preview\",\n    thinking_budget: 0,\n    max_output_tokens: 520,\n    summary_style: \"concise_clinical\"\n};\n\nmsg.headers = {\n    \"x-goog-api-key\": apiKey,\n    \"Content-Type\": \"application/json\"\n};\n\nmsg.payload = {\n    systemInstruction: {\n        role: \"system\",\n        parts: [\n            {\n                text: [\n                    \"You are a clinician-facing documentation assistant for an AI respiratory-audio screening system.\",\n                    \"Use only the model fields and the class-specific clinical focus provided in the user payload.\",\n                    \"Do not diagnose.\",\n                    \"Do not invent symptoms, examination findings, imaging, laboratory results, treatment, medication, or disease localization.\",\n                    \"Do not mention consolidation, atelectasis, infection, exacerbation, or any specific disease mechanism unless the provided predicted class directly supports it.\",\n                    \"Write a concise clinical screening note.\",\n                    \"Plain text only. No Markdown. No asterisks. No bullet symbols. No tables.\",\n                    \"Use exactly these six labels, each on a new line, and keep each label to one short sentence:\",\n                    \"1) Impression:\",\n                    \"2) Confidence:\",\n                    \"3) Key checks:\",\n                    \"4) Suggested workup:\",\n                    \"5) Review priority:\",\n                    \"6) Limitation:\",\n                    \"Maximum total length: 90 words.\",\n                    \"End with exactly: End of clinical note.\"\n                ].join(\" \")\n            }\n        ]\n    },\n    contents: [\n        {\n            role: \"user\",\n            parts: [\n                {\n                    text: JSON.stringify({\n                        file_name: r.file_name,\n                        predicted_class: r.predicted_class,\n                        predicted_class_raw: r.predicted_class_raw,\n                        confidence: confidence,\n                        confidence_percent: (confidence * 100).toFixed(2) + \"%\",\n                        confidence_level: r.confidence_level,\n                        top3_predictions: top3,\n                        review_flag: r.review_flag,\n                        review_reason: r.review_reason,\n                        review_priority_text: r.review_priority_text,\n                        healthy_probability: healthyProbability,\n                        healthy_probability_percent: (healthyProbability * 100).toFixed(2) + \"%\",\n                        abnormal_probability: abnormalProbability,\n                        abnormal_probability_percent: (abnormalProbability * 100).toFixed(2) + \"%\",\n                        duration_sec: r.duration_sec,\n                        original_sample_rate: r.original_sample_rate,\n                        focused_checks: r.focused_checks,\n                        suggested_adjunct_examinations: r.suggested_adjunct_examinations,\n                        clinical_note: r.clinical_note,\n                        class_specific_clinical_focus: clinicalFocus\n                    })\n                }\n            ]\n        }\n    ],\n    generationConfig: {\n        temperature: 0.05,\n        maxOutputTokens: 420,\n        thinkingConfig: {\n            thinkingBudget: 0\n        }\n    }\n};\n\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2130,
+    "y": 80,
+    "wires": [
+      [
+        "97025c6aa24ed205"
+      ],
+      [
+        "7e25641adfeb4117"
+      ]
+    ]
+  },
+  {
+    "id": "97025c6aa24ed205",
+    "type": "http request",
+    "z": "0bb10a78a4de5a69",
+    "name": "呼叫 Gemini generateContent",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 2390,
+    "y": 60,
+    "wires": [
+      [
+        "face79d341020b8e",
+        "722f0b541503b61a"
+      ]
+    ]
+  },
+  {
+    "id": "722f0b541503b61a",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "合併 Gemini 臨床摘要",
+    "func": "function buildFallbackSummary(r) {\n    const cls = r.predicted_class || \"unknown\";\n    const conf = isFinite(Number(r.confidence)) ? (Number(r.confidence) * 100).toFixed(2) + \"%\" : \"not available\";\n    const abnormal = isFinite(Number(r.abnormal_probability)) ? (Number(r.abnormal_probability) * 100).toFixed(2) + \"%\" : \"not available\";\n    const checks = r.focused_checks || \"Correlate with symptoms, SpO2, respiratory rate, and auscultation.\";\n    const workup = r.suggested_adjunct_examinations || \"Select further tests according to clinical context.\";\n    const priority = r.review_priority_text || \"Manual review is recommended when findings are uncertain or clinically discordant.\";\n\n    return [\n        \"1) Impression: Audio pattern is most compatible with \" + cls + \".\",\n        \"2) Confidence: \" + conf + \" confidence; abnormal-pattern probability \" + abnormal + \".\",\n        \"3) Key checks: \" + checks,\n        \"4) Suggested workup: \" + workup,\n        \"5) Review priority: \" + priority,\n        \"6) Limitation: Screening output only; confirm with clinical assessment.\",\n        \"End of clinical note.\"\n    ].join(\"\\n\");\n}\n\nfunction getGeminiError(payload, finishReason, text) {\n    if (!payload) return \"Gemini returned an empty response.\";\n    if (payload.error && payload.error.message) return payload.error.message;\n    if (payload.error) return JSON.stringify(payload.error);\n    if (finishReason === \"MAX_TOKENS\") return \"Gemini response was truncated because finishReason=MAX_TOKENS.\";\n    if (text && !text.includes(\"End of clinical note.\")) return \"Gemini response did not include the required end marker, so it may be incomplete.\";\n    if (payload.promptFeedback) return \"Gemini promptFeedback: \" + JSON.stringify(payload.promptFeedback);\n    return \"Gemini returned no candidates/content parts.\";\n}\n\nconst result = msg.model_result || {};\nlet text = \"\";\n\nconst candidates = (msg.payload && msg.payload.candidates) ? msg.payload.candidates : [];\nconst firstCandidate = candidates.length > 0 ? candidates[0] : {};\nconst finishReason = firstCandidate.finishReason || \"\";\n\nif (firstCandidate.content && Array.isArray(firstCandidate.content.parts)) {\n    text = firstCandidate.content.parts\n        .map(function(p) {\n            return p.text || \"\";\n        })\n        .join(\"\\n\")\n        .trim();\n}\n\ntext = String(text || \"\").replace(/\\*\\*/g, \"\").replace(/\\*/g, \"\").trim();\n\nconst hasRequiredEnd = text.includes(\"End of clinical note.\");\nconst isTruncated = finishReason === \"MAX_TOKENS\" || (text && !hasRequiredEnd);\n\nif (text && !isTruncated) {\n    result.summary_text = text;\n    result.gemini_used = true;\n    result.summary_source = \"gemini_clinical_concise\";\n    result.gemini_error = \"\";\n    result.gemini_debug = Object.assign({}, msg.gemini_debug || {}, {\n        stage: \"merge_gemini_summary\",\n        http_status: msg.statusCode || null,\n        candidates_count: candidates.length,\n        finish_reason: finishReason,\n        text_length: text.length,\n        complete_marker_found: hasRequiredEnd\n    });\n} else {\n    result.summary_text = buildFallbackSummary(result);\n    result.gemini_used = false;\n    result.summary_source = text ? \"model_fallback_incomplete_gemini\" : \"model_fallback_clinical_concise\";\n    result.gemini_error = getGeminiError(msg.payload, finishReason, text);\n    result.gemini_debug = Object.assign({}, msg.gemini_debug || {}, {\n        stage: \"merge_gemini_summary\",\n        http_status: msg.statusCode || null,\n        candidates_count: candidates.length,\n        finish_reason: finishReason,\n        partial_text_preview: String(text || \"\").substring(0, 500),\n        payload_preview: JSON.stringify(msg.payload || {}).substring(0, 800)\n    });\n}\n\nmsg.payload = result;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2630,
+    "y": 60,
+    "wires": [
+      [
+        "c06794c747567ca2"
+      ]
+    ]
+  },
+  {
+    "id": "7e25641adfeb4117",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "使用臨床摘要備援",
+    "func": "const result = msg.payload || msg.model_result || {};\nconst confidence = Number(result.confidence || 0);\nconst abnormalProbability = Number(result.abnormal_probability || 0);\nconst cls = result.predicted_class || \"an undetermined respiratory class\";\n\nconst checks = result.focused_checks || \"Correlate with symptoms, SpO2, respiratory rate, and auscultation.\";\nconst workup = result.suggested_adjunct_examinations || \"Select further tests according to clinical context.\";\nconst priority = result.review_priority_text || \"Manual review is recommended when findings are uncertain or clinically discordant.\";\n\nresult.gemini_used = false;\nresult.summary_source = \"model_fallback_concise\";\nresult.gemini_error = \"GEMINI_API_KEY was not detected by Node-RED, so Gemini was skipped.\";\nresult.gemini_debug = {\n    stage: \"fallback_before_gemini_call\",\n    key_detected: false,\n    advice: \"Start Node-RED from the same PowerShell window after setting $env:GEMINI_API_KEY.\"\n};\n\nresult.summary_text =\n    \"1) Impression: Audio pattern is most compatible with \" + cls + \".\\n\" +\n    \"2) Confidence: \" + (confidence * 100).toFixed(2) + \"% confidence; abnormal-pattern probability \" + (abnormalProbability * 100).toFixed(2) + \"%.\\n\" +\n    \"3) Key checks: \" + checks + \"\\n\" +\n    \"4) Suggested workup: \" + workup + \"\\n\" +\n    \"5) Review priority: \" + priority + \"\\n\" +\n    \"6) Limitation: Screening output only; confirm with clinical assessment.\\n\" +\n    \"End of clinical note.\";\n\nmsg.payload = result;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2390,
+    "y": 120,
+    "wires": [
+      [
+        "c06794c747567ca2"
+      ]
+    ]
+  },
+  {
+    "id": "5aa32f764a457c4c",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立寫入 SQL",
+    "func": "function esc(v) {\n    if (v === undefined || v === null) return \"NULL\";\n    return \"'\" + String(v).replace(/\\\\/g, \"\\\\\\\\\").replace(/'/g, \"''\") + \"'\";\n}\n\nfunction basename(p) {\n    if (!p) return \"\";\n    const parts = String(p).split(/[\\\\/]/);\n    return parts[parts.length - 1];\n}\n\nconst r = msg.payload || {};\nconst confidence = isFinite(Number(r.confidence)) ? Number(r.confidence) : 0;\nconst fname = basename(r.spectrogram_path);\n\nr.spectrogram_url = fname ? `/api/spectrogram/${encodeURIComponent(fname)}` : null;\nmsg.result = r;\n\nconst audioId = Number(r.audio_id);\nif (!Number.isInteger(audioId) || audioId <= 0) {\n    msg.statusCode = 500;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = {\n        ok: false,\n        error: \"缺少有效 audio_id，無法寫入 prediction_results\",\n        debug_result: r\n    };\n    return [null, msg];\n}\n\nconst remarkText = [\n    r.review_flag || r.remark || \"ok\",\n    r.predicted_class_raw ? \"raw_class=\" + r.predicted_class_raw : \"\"\n].filter(Boolean).join(\"; \");\n\nmsg.topic = `INSERT INTO prediction_results (audio_id, file_name, true_class, predicted_class, confidence, top3_json, spectrogram_path, summary_text, model_name, remark)\nVALUES (${audioId}, ${esc(r.file_name)}, ${esc(r.true_class || \"\")}, ${esc(r.predicted_class)}, ${confidence}, ${esc(r.top3_json)}, ${esc(r.spectrogram_path)}, ${esc(r.summary_text)}, ${esc(r.model_name || \"ResNet18+Log-MelSpectrogram\")}, ${esc(remarkText)})`;\n\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3590,
+    "y": 80,
+    "wires": [
+      [
+        "66fbe13f7d29b9af"
+      ],
+      [
+        "0293586db94d4f84"
+      ]
+    ]
+  },
+  {
+    "id": "66fbe13f7d29b9af",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "寫入 prediction_results",
+    "x": 3840,
+    "y": 80,
+    "wires": [
+      [
+        "99b1600f8f3e1f2b"
+      ]
+    ]
+  },
+  {
+    "id": "99b1600f8f3e1f2b",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳推論結果",
+    "func": "msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = {\n    ok: true,\n    result: msg.result || {}\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 4090,
+    "y": 80,
+    "wires": [
+      [
+        "0293586db94d4f84"
+      ]
+    ]
+  },
+  {
+    "id": "0293586db94d4f84",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "HTTP 回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 4310,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "c138aac371c558a4",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/history 歷史紀錄",
+    "url": "/api/history",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "dac9303e4ddff2ea"
+      ]
+    ]
+  },
+  {
+    "id": "dac9303e4ddff2ea",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立歷史查詢 SQL",
+    "func": "msg.topic = `\nSELECT\n    pr.id,\n    pr.audio_id,\n    pr.file_name,\n    pr.true_class,\n    pr.predicted_class,\n    pr.confidence,\n    pr.top3_json,\n    pr.spectrogram_path,\n    pr.summary_text,\n    pr.model_name,\n    pr.remark,\n    pr.inference_time,\n    af.file_path AS audio_file_path,\n    af.disease_type AS audio_disease_type\nFROM prediction_results pr\nLEFT JOIN audio_files af ON pr.audio_id = af.id\nORDER BY pr.id DESC\nLIMIT 200\n`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 160,
+    "wires": [
+      [
+        "104c587894805ea5"
+      ]
+    ]
+  },
+  {
+    "id": "104c587894805ea5",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "查詢歷史紀錄",
+    "x": 690,
+    "y": 160,
+    "wires": [
+      [
+        "c9e9b37f995f66de"
+      ]
+    ]
+  },
+  {
+    "id": "c9e9b37f995f66de",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳歷史紀錄",
+    "func": "function basename(p) {\n    if (!p) return \"\";\n    const parts = String(p).split(/[\\\\/]/);\n    return parts[parts.length - 1];\n}\n\nconst rows = (msg.payload || []).map(function(r) {\n    const fname = basename(r.spectrogram_path);\n    r.spectrogram_url = fname ? `/api/spectrogram/${encodeURIComponent(fname)}` : null;\n    return r;\n});\n\nmsg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, items: rows };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 950,
+    "y": 160,
+    "wires": [
+      [
+        "32f9ad7455ac6fa7"
+      ]
+    ]
+  },
+  {
+    "id": "32f9ad7455ac6fa7",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "歷史紀錄回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1190,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "bb590ee6050813fe",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/result/:id 單筆結果",
+    "url": "/api/result/:id",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 160,
+    "y": 220,
+    "wires": [
+      [
+        "514cd3d5d4eea4d4"
+      ]
+    ]
+  },
+  {
+    "id": "514cd3d5d4eea4d4",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立單筆查詢 SQL",
+    "func": "const id = Number(msg.req.params.id);\n\nif (!Number.isInteger(id) || id <= 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = { ok: false, error: \"無效的 id\" };\n    return [null, msg];\n}\n\nmsg.topic = `\nSELECT\n    pr.id,\n    pr.audio_id,\n    pr.file_name,\n    pr.true_class,\n    pr.predicted_class,\n    pr.confidence,\n    pr.top3_json,\n    pr.spectrogram_path,\n    pr.summary_text,\n    pr.model_name,\n    pr.remark,\n    pr.inference_time,\n    af.file_path AS audio_file_path,\n    af.disease_type AS audio_disease_type\nFROM prediction_results pr\nLEFT JOIN audio_files af ON pr.audio_id = af.id\nWHERE pr.id = ${id}\nLIMIT 1\n`;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 440,
+    "y": 220,
+    "wires": [
+      [
+        "2095b0bba7d12dbc"
+      ],
+      [
+        "4fe462358a0f0792"
+      ]
+    ]
+  },
+  {
+    "id": "2095b0bba7d12dbc",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "查詢單筆結果",
+    "x": 710,
+    "y": 220,
+    "wires": [
+      [
+        "593946b778e502c6"
+      ]
+    ]
+  },
+  {
+    "id": "593946b778e502c6",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳單筆結果",
+    "func": "function basename(p) {\n    if (!p) return \"\";\n    const parts = String(p).split(/[\\\\/]/);\n    return parts[parts.length - 1];\n}\nconst rows = msg.payload || [];\nif (!rows.length) {\n    msg.statusCode = 404;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = { ok: false, error: \"找不到結果\" };\n    return msg;\n}\nconst item = rows[0];\nconst fname = basename(item.spectrogram_path);\nitem.spectrogram_url = fname ? `/api/spectrogram/${encodeURIComponent(fname)}` : null;\nmsg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, item };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 970,
+    "y": 220,
+    "wires": [
+      [
+        "4fe462358a0f0792"
+      ]
+    ]
+  },
+  {
+    "id": "4fe462358a0f0792",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "單筆結果回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1240,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "dc8b319ee48cd9ce",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "DELETE /api/result/:id 刪除結果",
+    "url": "/api/result/:id",
+    "method": "delete",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 300,
+    "wires": [
+      [
+        "9781153e48c3140a"
+      ]
+    ]
+  },
+  {
+    "id": "9781153e48c3140a",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立刪除 SQL",
+    "func": "const id = Number(msg.req.params.id);\nif (!Number.isInteger(id) || id <= 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = { ok: false, error: \"無效的 id\" };\n    return [null, msg];\n}\nmsg.delete_id = id;\nmsg.topic = `DELETE FROM prediction_results WHERE id = ${id}`;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 300,
+    "wires": [
+      [
+        "5475a753a0120761"
+      ],
+      [
+        "d53888d05f371bee"
+      ]
+    ]
+  },
+  {
+    "id": "5475a753a0120761",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "刪除結果",
+    "x": 680,
+    "y": 300,
+    "wires": [
+      [
+        "43cd9271c4a47df3"
+      ]
+    ]
+  },
+  {
+    "id": "43cd9271c4a47df3",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳刪除結果",
+    "func": "msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, deleted_id: msg.delete_id };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 950,
+    "y": 300,
+    "wires": [
+      [
+        "d53888d05f371bee"
+      ]
+    ]
+  },
+  {
+    "id": "d53888d05f371bee",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "刪除結果回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1210,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "f6946a1cbc3c88b4",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/spectrogram/:filename 頻譜圖",
+    "url": "/api/spectrogram/:filename",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 190,
+    "y": 380,
+    "wires": [
+      [
+        "1a7294c215ee51de"
+      ]
+    ]
+  },
+  {
+    "id": "1a7294c215ee51de",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立頻譜圖路徑",
+    "func": "const raw = String(msg.req.params.filename || \"\");\nconst safe = raw.replace(/[^\\w.\\-%]/g, \"_\");\nconst baseDir = process.env.RESPIRASENSE_ROOT || require('path').join(__dirname, '..');\nmsg.filename = require('path').join(baseDir, \"ResNet18_results\", \"spectrograms\", decodeURIComponent(safe));\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 480,
+    "y": 380,
+    "wires": [
+      [
+        "e4fd392956b55b0d"
+      ]
+    ]
+  },
+  {
+    "id": "e4fd392956b55b0d",
+    "type": "file in",
+    "z": "0bb10a78a4de5a69",
+    "name": "讀取頻譜圖 PNG",
+    "filename": "filename",
+    "filenameType": "msg",
+    "format": "",
+    "chunk": false,
+    "sendError": true,
+    "encoding": "none",
+    "allProps": false,
+    "x": 720,
+    "y": 380,
+    "wires": [
+      [
+        "8b865d5218e24ec6"
+      ]
+    ]
+  },
+  {
+    "id": "8b865d5218e24ec6",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳頻譜圖",
+    "func": "msg.headers = {\n    \"Content-Type\": \"image/png\",\n    \"Access-Control-Allow-Origin\": \"*\"\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 940,
+    "y": 380,
+    "wires": [
+      [
+        "e0ebe4940ed549fd"
+      ]
+    ]
+  },
+  {
+    "id": "e0ebe4940ed549fd",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "頻譜圖回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1160,
+    "y": 380,
+    "wires": []
+  },
+  {
+    "id": "437c10b16644dc4d",
+    "type": "catch",
+    "z": "0bb10a78a4de5a69",
+    "name": "捕捉全部錯誤",
+    "scope": null,
+    "uncaught": false,
+    "x": 130,
+    "y": 480,
+    "wires": [
+      [
+        "b003a219289fbced"
+      ]
+    ]
+  },
+  {
+    "id": "b003a219289fbced",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "格式化錯誤訊息",
+    "func": "msg.statusCode = 500;\nmsg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = {\n    ok: false,\n    error: msg.error && msg.error.message ? msg.error.message : \"未處理的流程錯誤\"\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 410,
+    "y": 480,
+    "wires": [
+      [
+        "03f221c7401a330c",
+        "e2648ece6c1bf122"
+      ]
+    ]
+  },
+  {
+    "id": "03f221c7401a330c",
+    "type": "debug",
+    "z": "0bb10a78a4de5a69",
+    "name": "除錯錯誤訊息",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 680,
+    "y": 460,
+    "wires": []
+  },
+  {
+    "id": "e2648ece6c1bf122",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "錯誤回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 670,
+    "y": 520,
+    "wires": []
+  },
+  {
+    "id": "ba066f43e203fd37",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /demo 展示頁",
+    "url": "/demo",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 120,
+    "y": 580,
+    "wires": [
+      [
+        "82d38388a041952a"
+      ]
+    ]
+  },
+  {
+    "id": "82d38388a041952a",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立大型臨床版 Demo HTML",
+    "func": "msg.headers = {\n    \"Content-Type\": \"text/html; charset=utf-8\"\n};\n\nmsg.payload = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n  <title>RespiraSense AI Console</title>\n  <style>\n    * { box-sizing: border-box; }\n    :root {\n      --bg: #eef4fb;\n      --surface: #ffffff;\n      --surface-2: #f7fbff;\n      --text: #102033;\n      --muted: #66788f;\n      --line: #dbe7f3;\n      --primary: #2563eb;\n      --primary-2: #0f766e;\n      --primary-soft: #e8f0ff;\n      --teal-soft: #e8fbf8;\n      --warning: #e08a00;\n      --warning-soft: #fff6e7;\n      --danger: #c0392b;\n      --danger-soft: #fff0ef;\n      --success: #17834f;\n      --success-soft: #ebf9f1;\n      --shadow: 0 20px 60px rgba(16, 32, 51, 0.08);\n      --radius-xl: 30px;\n      --radius-lg: 22px;\n      --radius-md: 16px;\n    }\n\n    body {\n      margin: 0;\n      min-height: 100vh;\n      font-family: Arial, \"Microsoft JhengHei\", \"Noto Sans TC\", sans-serif;\n      background:\n        radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 35%),\n        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 32%),\n        var(--bg);\n      color: var(--text);\n      font-size: 18px;\n    }\n\n    .app-shell {\n      display: grid;\n      grid-template-columns: 300px 1fr;\n      min-height: 100vh;\n      gap: 22px;\n      padding: 22px;\n    }\n\n    .sidebar {\n      position: sticky;\n      top: 22px;\n      height: calc(100vh - 44px);\n      background: rgba(255, 255, 255, 0.86);\n      backdrop-filter: blur(16px);\n      border: 1px solid rgba(219, 231, 243, 0.9);\n      border-radius: var(--radius-xl);\n      box-shadow: var(--shadow);\n      padding: 22px;\n      display: flex;\n      flex-direction: column;\n      gap: 20px;\n    }\n\n    .brand {\n      display: flex;\n      align-items: center;\n      gap: 14px;\n      padding: 8px;\n    }\n\n    .brand-mark {\n      width: 58px;\n      height: 58px;\n      border-radius: 20px;\n      display: grid;\n      place-items: center;\n      color: #ffffff;\n      font-weight: 900;\n      font-size: 24px;\n      background: linear-gradient(135deg, var(--primary), var(--primary-2));\n      box-shadow: 0 16px 36px rgba(37, 99, 235, 0.25);\n    }\n\n    .brand h1 {\n      margin: 0;\n      font-size: 23px;\n      line-height: 1.1;\n      letter-spacing: -0.03em;\n    }\n\n    .brand span {\n      display: block;\n      margin-top: 4px;\n      color: var(--muted);\n      font-size: 13px;\n      font-weight: 700;\n      letter-spacing: 0.08em;\n      text-transform: uppercase;\n    }\n\n    .nav {\n      display: grid;\n      gap: 10px;\n    }\n\n    .nav button {\n      width: 100%;\n      border: 1px solid transparent;\n      background: transparent;\n      color: var(--muted);\n      border-radius: 18px;\n      padding: 15px 15px;\n      display: flex;\n      align-items: center;\n      gap: 12px;\n      font-size: 17px;\n      font-weight: 800;\n      text-align: left;\n      cursor: pointer;\n      transition: all 0.15s ease;\n    }\n\n    .nav button:hover {\n      background: var(--surface-2);\n      color: var(--text);\n    }\n\n    .nav button.active {\n      color: #ffffff;\n      background: linear-gradient(135deg, var(--primary), #1d4ed8);\n      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.22);\n    }\n\n    .nav-icon {\n      width: 38px;\n      height: 38px;\n      border-radius: 14px;\n      display: grid;\n      place-items: center;\n      background: rgba(37, 99, 235, 0.10);\n      color: var(--primary);\n      flex: 0 0 auto;\n    }\n\n    .nav button.active .nav-icon {\n      background: rgba(255, 255, 255, 0.22);\n      color: #ffffff;\n    }\n\n    .status-card {\n      margin-top: auto;\n      border-radius: 24px;\n      padding: 18px;\n      background: linear-gradient(135deg, #f8fbff, #eef7ff);\n      border: 1px solid var(--line);\n    }\n\n    .status-pill {\n      display: flex;\n      align-items: center;\n      gap: 12px;\n      font-weight: 900;\n      margin-bottom: 10px;\n    }\n\n    .dot {\n      width: 14px;\n      height: 14px;\n      border-radius: 50%;\n      background: #7e8da4;\n    }\n\n    .dot.running { background: var(--warning); box-shadow: 0 0 0 7px rgba(224, 138, 0, 0.14); }\n    .dot.success { background: var(--success); box-shadow: 0 0 0 7px rgba(23, 131, 79, 0.14); }\n    .dot.error { background: var(--danger); box-shadow: 0 0 0 7px rgba(192, 57, 43, 0.14); }\n\n    .status-card p {\n      margin: 0;\n      color: var(--muted);\n      line-height: 1.5;\n      font-size: 14px;\n    }\n\n    .main {\n      min-width: 0;\n    }\n\n    .top-hero {\n      border-radius: var(--radius-xl);\n      color: #ffffff;\n      padding: 28px;\n      margin-bottom: 22px;\n      background:\n        linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(15, 118, 110, 0.92)),\n        radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.30), transparent 26%);\n      box-shadow: var(--shadow);\n      overflow: hidden;\n      position: relative;\n    }\n\n    .top-hero:after {\n      content: \"\";\n      position: absolute;\n      right: -80px;\n      bottom: -110px;\n      width: 310px;\n      height: 310px;\n      border-radius: 50%;\n      background: rgba(255, 255, 255, 0.12);\n    }\n\n    .hero-content {\n      position: relative;\n      z-index: 1;\n      display: grid;\n      grid-template-columns: 1.15fr 0.85fr;\n      gap: 22px;\n      align-items: center;\n    }\n\n    .hero-kicker {\n      font-size: 14px;\n      font-weight: 900;\n      letter-spacing: 0.12em;\n      text-transform: uppercase;\n      opacity: 0.88;\n      margin-bottom: 8px;\n    }\n\n    .hero-title {\n      margin: 0;\n      font-size: 42px;\n      letter-spacing: -0.05em;\n      line-height: 1.05;\n    }\n\n    .hero-copy {\n      margin: 12px 0 0;\n      line-height: 1.6;\n      color: rgba(255, 255, 255, 0.86);\n      max-width: 840px;\n    }\n\n    .hero-mini-grid {\n      display: grid;\n      grid-template-columns: repeat(2, 1fr);\n      gap: 12px;\n    }\n\n    .hero-mini-card {\n      background: rgba(255, 255, 255, 0.14);\n      border: 1px solid rgba(255, 255, 255, 0.22);\n      border-radius: 20px;\n      padding: 16px;\n      backdrop-filter: blur(14px);\n    }\n\n    .hero-mini-card strong {\n      display: block;\n      font-size: 25px;\n      margin-bottom: 4px;\n    }\n\n    .hero-mini-card span {\n      font-size: 13px;\n      opacity: 0.85;\n      font-weight: 800;\n    }\n\n    .view { display: none; }\n    .view.active { display: block; }\n\n    .grid {\n      display: grid;\n      gap: 22px;\n    }\n\n    .grid.two {\n      grid-template-columns: 430px 1fr;\n    }\n\n    .grid.two-even {\n      grid-template-columns: 1fr 1fr;\n    }\n\n    .panel {\n      background: rgba(255, 255, 255, 0.92);\n      border: 1px solid rgba(219, 231, 243, 0.92);\n      border-radius: var(--radius-xl);\n      box-shadow: var(--shadow);\n      padding: 24px;\n      min-width: 0;\n    }\n\n    .panel-header {\n      display: flex;\n      align-items: flex-start;\n      justify-content: space-between;\n      gap: 14px;\n      margin-bottom: 16px;\n    }\n\n    .panel h2 {\n      margin: 0;\n      font-size: 28px;\n      letter-spacing: -0.035em;\n    }\n\n    .panel p.subtext {\n      margin: 8px 0 0;\n      color: var(--muted);\n      line-height: 1.55;\n      font-size: 16px;\n    }\n\n    .upload-zone {\n      margin-top: 18px;\n      border: 2px dashed #b7c8dd;\n      border-radius: 26px;\n      background:\n        linear-gradient(180deg, #fbfdff, #f3f8ff);\n      padding: 28px;\n      text-align: center;\n      cursor: pointer;\n      transition: 0.15s ease;\n    }\n\n    .upload-zone:hover {\n      border-color: var(--primary);\n      transform: translateY(-1px);\n    }\n\n    .upload-zone input { display: none; }\n\n    .upload-orb {\n      width: 76px;\n      height: 76px;\n      border-radius: 26px;\n      display: grid;\n      place-items: center;\n      margin: 0 auto 16px;\n      color: #ffffff;\n      font-size: 32px;\n      font-weight: 900;\n      background: linear-gradient(135deg, var(--primary), var(--primary-2));\n      box-shadow: 0 16px 38px rgba(37, 99, 235, 0.25);\n    }\n\n    .upload-title {\n      font-size: 23px;\n      font-weight: 900;\n      word-break: break-word;\n    }\n\n    .upload-help {\n      margin-top: 8px;\n      color: var(--muted);\n      line-height: 1.5;\n      font-size: 15px;\n    }\n\n    .button-stack {\n      display: grid;\n      gap: 11px;\n      margin-top: 16px;\n    }\n\n    .btn {\n      border: 1px solid transparent;\n      border-radius: 16px;\n      padding: 14px 18px;\n      font-size: 17px;\n      font-weight: 900;\n      cursor: pointer;\n      transition: 0.15s ease;\n    }\n\n    .btn:disabled {\n      opacity: 0.65;\n      cursor: not-allowed;\n    }\n\n    .btn-primary {\n      color: #ffffff;\n      background: linear-gradient(135deg, var(--primary), #1d4ed8);\n      box-shadow: 0 14px 28px rgba(37, 99, 235, 0.20);\n    }\n\n    .btn-secondary {\n      color: var(--text);\n      background: #ffffff;\n      border-color: var(--line);\n    }\n\n    .btn-danger {\n      color: var(--danger);\n      background: var(--danger-soft);\n      border-color: #f4c3bd;\n    }\n\n    .btn:hover:not(:disabled) {\n      transform: translateY(-1px);\n    }\n\n    .metric-grid {\n      display: grid;\n      grid-template-columns: repeat(3, 1fr);\n      gap: 14px;\n      margin-top: 16px;\n    }\n\n    .metric-card {\n      border-radius: 22px;\n      border: 1px solid var(--line);\n      background: var(--surface-2);\n      padding: 16px;\n      min-height: 106px;\n    }\n\n    .metric-label {\n      color: var(--muted);\n      font-size: 13px;\n      font-weight: 900;\n      letter-spacing: 0.04em;\n      text-transform: uppercase;\n    }\n\n    .metric-value {\n      margin-top: 10px;\n      font-size: 20px;\n      font-weight: 900;\n      line-height: 1.25;\n      word-break: break-word;\n    }\n\n    .prediction-card {\n      margin-top: 14px;\n      border-radius: 26px;\n      padding: 22px;\n      border: 1px solid #cfe1f7;\n      background: linear-gradient(135deg, #f8fbff, #eef6ff);\n    }\n\n    .prediction-card .metric-label {\n      color: #41637d;\n    }\n\n    .prediction-value {\n      margin-top: 8px;\n      color: var(--primary);\n      font-size: 31px;\n      font-weight: 950;\n      letter-spacing: -0.04em;\n      line-height: 1.15;\n    }\n\n    .top3-list {\n      display: grid;\n      gap: 12px;\n      margin-top: 16px;\n    }\n\n    .top3-item {\n      display: grid;\n      grid-template-columns: 64px 1fr auto;\n      align-items: center;\n      gap: 12px;\n      border: 1px solid var(--line);\n      border-radius: 20px;\n      background: var(--surface-2);\n      padding: 13px;\n    }\n\n    .rank {\n      width: 52px;\n      height: 52px;\n      border-radius: 18px;\n      display: grid;\n      place-items: center;\n      font-weight: 950;\n      color: var(--primary);\n      background: var(--primary-soft);\n    }\n\n    .top3-title {\n      font-weight: 900;\n      line-height: 1.25;\n    }\n\n    .top3-raw {\n      margin-top: 4px;\n      color: var(--muted);\n      font-size: 13px;\n    }\n\n    .top3-score {\n      font-weight: 950;\n      color: var(--primary);\n    }\n\n    .advice-grid {\n      display: grid;\n      grid-template-columns: repeat(3, 1fr);\n      gap: 16px;\n      margin-top: 16px;\n    }\n\n    .advice-card {\n      border: 1px solid var(--line);\n      border-radius: 22px;\n      background: linear-gradient(180deg, #ffffff, #f7fbff);\n      padding: 18px;\n      line-height: 1.6;\n    }\n\n    .advice-card strong {\n      display: block;\n      color: var(--primary-2);\n      margin-bottom: 8px;\n      font-size: 17px;\n    }\n\n    .summary-box {\n      min-height: 420px;\n      white-space: pre-wrap;\n      line-height: 1.72;\n      border-radius: 22px;\n      border: 1px solid var(--line);\n      background: #fbfdff;\n      padding: 20px;\n      overflow: auto;\n    }\n\n    .badge-row {\n      display: flex;\n      flex-wrap: wrap;\n      gap: 10px;\n      margin-top: 14px;\n    }\n\n    .badge {\n      border-radius: 999px;\n      padding: 9px 13px;\n      color: var(--primary);\n      background: var(--primary-soft);\n      font-size: 14px;\n      font-weight: 900;\n    }\n\n    .debug-box {\n      display: none;\n      margin-top: 12px;\n      color: var(--danger);\n      background: var(--danger-soft);\n      border: 1px solid #f1bdb8;\n      border-radius: 18px;\n      padding: 14px;\n      white-space: pre-wrap;\n      font-size: 14px;\n      line-height: 1.5;\n    }\n\n    .spectrogram-wrap {\n      min-height: 420px;\n      display: grid;\n      place-items: center;\n      border-radius: 24px;\n      border: 1px solid var(--line);\n      background:\n        linear-gradient(180deg, #fbfdff, #f6faff);\n      padding: 16px;\n      overflow: hidden;\n    }\n\n    .spectrogram-wrap img {\n      display: none;\n      max-width: 100%;\n      border-radius: 16px;\n      cursor: zoom-in;\n      transition: transform 0.15s ease, box-shadow 0.15s ease;\n    }\n\n    .spectrogram-wrap img:hover {\n      transform: scale(1.01);\n      box-shadow: 0 18px 45px rgba(16, 32, 51, 0.18);\n    }\n\n    .placeholder {\n      color: #8a9bb1;\n      text-align: center;\n      line-height: 1.6;\n    }\n\n    .toolbar {\n      display: flex;\n      align-items: center;\n      flex-wrap: wrap;\n      gap: 10px;\n      margin: 16px 0;\n    }\n\n    .search-input {\n      flex: 1;\n      min-width: 270px;\n      border: 1px solid var(--line);\n      border-radius: 16px;\n      padding: 14px 15px;\n      font-size: 16px;\n      background: #ffffff;\n    }\n\n    .table-wrap {\n      overflow: auto;\n      border: 1px solid var(--line);\n      border-radius: 22px;\n      background: #ffffff;\n    }\n\n    table {\n      width: 100%;\n      border-collapse: collapse;\n      min-width: 980px;\n    }\n\n    th, td {\n      padding: 14px 12px;\n      border-bottom: 1px solid #e7eff8;\n      text-align: left;\n      vertical-align: top;\n      font-size: 15px;\n    }\n\n    th {\n      color: var(--muted);\n      background: #f7fbff;\n      font-size: 13px;\n      letter-spacing: 0.04em;\n      text-transform: uppercase;\n    }\n\n    .stats-grid {\n      display: grid;\n      grid-template-columns: repeat(3, 1fr);\n      gap: 16px;\n      margin: 16px 0;\n    }\n\n    .stat-card {\n      border-radius: 24px;\n      border: 1px solid var(--line);\n      background: linear-gradient(135deg, #ffffff, #f7fbff);\n      padding: 18px;\n    }\n\n    .stat-card .number {\n      margin-top: 8px;\n      color: var(--primary);\n      font-size: 34px;\n      font-weight: 950;\n    }\n\n    .image-modal {\n      position: fixed;\n      inset: 0;\n      display: none;\n      align-items: center;\n      justify-content: center;\n      background: rgba(7, 14, 25, 0.84);\n      z-index: 9999;\n      padding: 26px;\n    }\n\n    .image-modal.open {\n      display: flex;\n    }\n\n    .modal-content {\n      width: min(96vw, 1280px);\n      max-height: 92vh;\n      background: #ffffff;\n      border-radius: 30px;\n      padding: 18px;\n      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.40);\n    }\n\n    .modal-header {\n      display: flex;\n      align-items: center;\n      justify-content: space-between;\n      gap: 14px;\n      margin-bottom: 12px;\n    }\n\n    .modal-header h3 {\n      margin: 0;\n      font-size: 24px;\n    }\n\n    .modal-image-wrap {\n      max-height: calc(92vh - 92px);\n      overflow: auto;\n      border-radius: 22px;\n      background: #f7fbff;\n      border: 1px solid var(--line);\n      padding: 14px;\n      display: grid;\n      place-items: center;\n    }\n\n    .modal-image-wrap img {\n      max-width: 100%;\n      border-radius: 14px;\n    }\n\n    @media (max-width: 1180px) {\n      .app-shell {\n        grid-template-columns: 1fr;\n      }\n\n      .sidebar {\n        position: relative;\n        top: 0;\n        height: auto;\n      }\n\n      .nav {\n        grid-template-columns: repeat(3, 1fr);\n      }\n\n      .status-card {\n        margin-top: 0;\n      }\n\n      .hero-content,\n      .grid.two,\n      .grid.two-even,\n      .metric-grid,\n      .advice-grid,\n      .stats-grid {\n        grid-template-columns: 1fr;\n      }\n    }\n\n    @media (max-width: 720px) {\n      .app-shell {\n        padding: 12px;\n      }\n\n      .top-hero,\n      .panel,\n      .sidebar {\n        border-radius: 22px;\n      }\n\n      .hero-title {\n        font-size: 32px;\n      }\n\n      .nav {\n        grid-template-columns: 1fr;\n      }\n    }\n  \n    /* v14 Tech Console Override */\n    :root {\n      --bg: #07111f;\n      --card: rgba(12, 24, 42, 0.88);\n      --line: rgba(34, 211, 238, 0.20);\n      --text: #eaf6ff;\n      --muted: #8fa7c2;\n      --blue: #22d3ee;\n      --blue-soft: rgba(34, 211, 238, 0.10);\n      --danger: #f87171;\n      --danger-soft: rgba(248, 113, 113, 0.12);\n      --success: #22c55e;\n      --success-soft: rgba(34, 197, 94, 0.12);\n      --shadow: 0 28px 90px rgba(0, 0, 0, 0.35);\n    }\n\n    body {\n      background:\n        radial-gradient(circle at 12% 10%, rgba(34, 211, 238, 0.22), transparent 30%),\n        radial-gradient(circle at 88% 18%, rgba(139, 92, 246, 0.20), transparent 34%),\n        linear-gradient(135deg, #06101d, #0b1728) !important;\n      color: var(--text) !important;\n    }\n\n    body:before {\n      content: \"\";\n      position: fixed;\n      inset: 0;\n      pointer-events: none;\n      background-image:\n        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),\n        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);\n      background-size: 44px 44px;\n      mask-image: radial-gradient(circle at center, black 0%, transparent 82%);\n      z-index: -1;\n    }\n\n    .sidebar,\n    .panel,\n    .top-hero,\n    .status-card {\n      background: linear-gradient(180deg, rgba(12, 24, 42, 0.92), rgba(7, 17, 31, 0.78)) !important;\n      border-color: rgba(34, 211, 238, 0.18) !important;\n      backdrop-filter: blur(18px);\n      box-shadow: 0 24px 80px rgba(0,0,0,0.36), 0 0 32px rgba(34,211,238,0.08) !important;\n    }\n\n    .top-hero {\n      color: var(--text) !important;\n      background:\n        linear-gradient(135deg, rgba(12, 24, 42, 0.94), rgba(15, 23, 42, 0.88)),\n        radial-gradient(circle at 84% 22%, rgba(34, 211, 238, 0.22), transparent 32%) !important;\n    }\n\n    .brand-mark,\n    .upload-icon,\n    .rank,\n    .nav button.active {\n      background: linear-gradient(135deg, #22d3ee, #3b82f6, #8b5cf6) !important;\n      color: #06101d !important;\n      box-shadow: 0 0 28px rgba(34, 211, 238, 0.22) !important;\n    }\n\n    .nav button,\n    .tab-btn,\n    .secondary-btn,\n    .modal-close,\n    .search-input {\n      background: rgba(255,255,255,0.045) !important;\n      color: var(--text) !important;\n      border-color: rgba(34,211,238,0.18) !important;\n    }\n\n    .upload-box,\n    .prediction-box,\n    .metric,\n    .advice-card,\n    .summary-box,\n    .spectrogram-wrap,\n    .stat-card,\n    .table-wrap,\n    .top3-item,\n    .modal-content,\n    .modal-image-wrap {\n      background: rgba(255,255,255,0.045) !important;\n      border-color: rgba(34,211,238,0.16) !important;\n      color: var(--text) !important;\n    }\n\n    th {\n      background: rgba(34, 211, 238, 0.08) !important;\n      color: #67e8f9 !important;\n    }\n\n    td {\n      color: var(--text) !important;\n    }\n\n    .subtext,\n    .upload-help,\n    .label,\n    .small-text,\n    .placeholder {\n      color: var(--muted) !important;\n    }\n\n    .big-value,\n    .prediction-value,\n    .metric .value,\n    .stat-card .number,\n    .top3-score,\n    .badge {\n      color: #67e8f9 !important;\n    }\n\n    .primary-btn {\n      background: linear-gradient(135deg, #22d3ee, #3b82f6) !important;\n      color: #06101d !important;\n    }\n\n    .hero-title {\n      font-size: 40px !important;\n      letter-spacing: -0.055em !important;\n    }\n\n    .hero-copy {\n      max-width: 520px !important;\n      font-size: 16px !important;\n    }\n\n    .hero-mini-card {\n      background: rgba(34, 211, 238, 0.08) !important;\n      border-color: rgba(34, 211, 238, 0.18) !important;\n    }\n\n  \n\n    /* v17 Strong Contrast Fix */\n    /* Fix text that was still too light in upload and metric cards */\n    .upload-zone,\n    .prediction-card,\n    .metric-card,\n    .top3-item,\n    .advice-card,\n    .summary-box,\n    .spectrogram-wrap,\n    .table-wrap,\n    .stat-card,\n    .modal-content,\n    .modal-image-wrap {\n      background: #f7fbff !important;\n      border-color: #c7d9ee !important;\n      color: #13263f !important;\n      box-shadow: 0 8px 24px rgba(7, 17, 31, 0.08) !important;\n    }\n\n    /* Upload card text */\n    .upload-title,\n    #fileName {\n      color: #18324f !important;\n      font-weight: 900 !important;\n    }\n\n    .upload-help {\n      color: #4b6482 !important;\n      font-weight: 600 !important;\n    }\n\n    /* Labels like Confidence / Review Flag */\n    .metric-label,\n    .prediction-card .metric-label,\n    .metric-card .metric-label {\n      color: #506985 !important;\n      font-weight: 900 !important;\n      opacity: 1 !important;\n    }\n\n    /* Output values like -, 99.93%, Priority Review Recommended */\n    .metric-value,\n    .prediction-value,\n    .metric-card .metric-value,\n    .prediction-card .prediction-value,\n    #confidence,\n    #confidenceLevel,\n    #abnormalProb,\n    #reviewFlag,\n    #reviewReason,\n    #inferTime,\n    #predClass {\n      color: #0f2742 !important;\n      opacity: 1 !important;\n      font-weight: 900 !important;\n      text-shadow: none !important;\n    }\n\n    /* Keep main highlighted result blue but darker */\n    .prediction-value,\n    #predClass,\n    .top3-score,\n    .rank,\n    .badge,\n    .stat-card .number {\n      color: #0b57d0 !important;\n    }\n\n    .top3-title,\n    .advice-card,\n    .advice-card strong,\n    .summary-box,\n    .table-wrap th,\n    .table-wrap td,\n    .modal-content,\n    .modal-content h3,\n    .stat-card .label {\n      color: #13263f !important;\n    }\n\n    .top3-raw,\n    .subtext,\n    .small-text,\n    .placeholder {\n      color: #5c7390 !important;\n      opacity: 1 !important;\n    }\n\n  </style>\n</head>\n<body>\n  <div class=\"app-shell\">\n    <aside class=\"sidebar\">\n      <div class=\"brand\">\n        <div class=\"brand-mark\">RS</div>\n        <div>\n          <h1>RespiraSense</h1>\n          <span>AI Console</span>\n        </div>\n      </div>\n\n      <nav class=\"nav\">\n        <button class=\"nav-btn active\" data-view=\"analysisView\">\n          <span class=\"nav-icon\">◎</span>\n          <span>Analysis</span>\n        </button>\n        <button class=\"nav-btn\" data-view=\"historyView\">\n          <span class=\"nav-icon\">≡</span>\n          <span>History Records</span>\n        </button>\n        <button class=\"nav-btn\" data-view=\"databaseView\">\n          <span class=\"nav-icon\">▦</span>\n          <span>Database Manager</span>\n        </button>\n      </nav>\n\n      <div class=\"status-card\">\n        <div class=\"status-pill\">\n          <span id=\"statusDot\" class=\"dot\"></span>\n          <span id=\"statusText\">Ready</span>\n        </div>\n        <p>Upload. Analyze. Review.</p>\n      </div>\n    </aside>\n\n    <main class=\"main\">\n      <section class=\"top-hero\">\n        <div class=\"hero-content\">\n          <div>\n            <div class=\"hero-kicker\">Respiratory Sound Intelligence</div>\n            <h2 class=\"hero-title\">AI Respiratory Review Console</h2>\n            <p class=\"hero-copy\">WAV → Mel-Spectrogram → ResNet18 → Gemini 3.1 note.</p>\n          </div>\n          <div class=\"hero-mini-grid\">\n            <div class=\"hero-mini-card\"><strong>5</strong><span>Target classes</span></div>\n            <div class=\"hero-mini-card\"><strong>Top-3</strong><span>Differential ranking</span></div>\n            <div class=\"hero-mini-card\"><strong>3.1</strong><span>Gemini Flash-Lite</span></div>\n            <div class=\"hero-mini-card\"><strong>DB</strong><span>Records</span></div>\n          </div>\n        </div>\n      </section>\n\n      <section id=\"analysisView\" class=\"view active\">\n        <div class=\"grid two\">\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Upload Audio</h2>\n                <p class=\"subtext\">Select a respiratory WAV file. Use Clear Loaded File when you want to choose another sample.</p>\n              </div>\n            </div>\n\n            <div id=\"dropZone\" class=\"upload-zone\">\n              <input id=\"wavFile\" type=\"file\" accept=\".wav,audio/wav\" />\n              <div class=\"upload-orb\">♪</div>\n              <div id=\"fileName\" class=\"upload-title\">Choose WAV File</div>\n              <div class=\"upload-help\">Supported format: .wav respiratory audio</div>\n            </div>\n\n            <div class=\"button-stack\">\n              <button id=\"runBtn\" class=\"btn btn-primary\">Start Analysis</button>\n              <button id=\"clearFileBtn\" class=\"btn btn-secondary\">Clear Loaded File</button>\n            </div>\n          </div>\n\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Prediction Result</h2>\n                <p class=\"subtext\">Shows the model's most compatible respiratory audio pattern and risk indicators.</p>\n              </div>\n              <button id=\"clearResultBtn\" class=\"btn btn-secondary\">Clear Results</button>\n            </div>\n\n            <div class=\"prediction-card\">\n              <div class=\"metric-label\">Most Compatible Audio Pattern</div>\n              <div id=\"predClass\" class=\"prediction-value\">-</div>\n            </div>\n\n            <div class=\"metric-grid\">\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Confidence</div>\n                <div id=\"confidence\" class=\"metric-value\">-</div>\n              </div>\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Confidence Level</div>\n                <div id=\"confidenceLevel\" class=\"metric-value\">-</div>\n              </div>\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Abnormal Probability</div>\n                <div id=\"abnormalProb\" class=\"metric-value\">-</div>\n              </div>\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Review Flag</div>\n                <div id=\"reviewFlag\" class=\"metric-value\">-</div>\n              </div>\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Review Reason</div>\n                <div id=\"reviewReason\" class=\"metric-value\">-</div>\n              </div>\n              <div class=\"metric-card\">\n                <div class=\"metric-label\">Inference Time</div>\n                <div id=\"inferTime\" class=\"metric-value\">-</div>\n              </div>\n            </div>\n          </div>\n        </div>\n\n        <div class=\"grid two-even\" style=\"margin-top:22px;\">\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Top-3 Ranked Patterns</h2>\n                <p class=\"subtext\">Displays the top ranked model outputs for differential comparison.</p>\n              </div>\n            </div>\n            <div id=\"top3\" class=\"top3-list\">\n              <div class=\"placeholder\">No prediction yet.</div>\n            </div>\n          </div>\n\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Clinical Review Checklist</h2>\n                <p class=\"subtext\">Immediate class-specific checks generated from model output.</p>\n              </div>\n            </div>\n            <div id=\"clinicalAdvice\" class=\"advice-grid\">\n              <div class=\"advice-card\"><strong>Focused Checks</strong><span>No prediction yet.</span></div>\n              <div class=\"advice-card\"><strong>Suggested Adjunct Examinations</strong><span>No prediction yet.</span></div>\n              <div class=\"advice-card\"><strong>Review Priority</strong><span>No prediction yet.</span></div>\n            </div>\n          </div>\n        </div>\n\n        <div class=\"grid two-even\" style=\"margin-top:22px;\">\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Gemini Clinical Summary</h2>\n                <p class=\"subtext\">Structured clinical decision-support note with limitations and review guidance.</p>\n              </div>\n            </div>\n            <div id=\"summaryText\" class=\"summary-box\">No summary yet.</div>\n            <div class=\"badge-row\">\n              <div class=\"badge\">Summary Source: <span id=\"summarySource\">-</span></div>\n              <div class=\"badge\">Gemini Used: <span id=\"geminiUsed\">-</span></div>\n            </div>\n            <div id=\"geminiDebugBox\" class=\"debug-box\"></div>\n          </div>\n\n          <div class=\"panel\">\n            <div class=\"panel-header\">\n              <div>\n                <h2>Mel-Spectrogram</h2>\n                <p class=\"subtext\">Click the image to enlarge and inspect the time-frequency representation.</p>\n              </div>\n            </div>\n            <div class=\"spectrogram-wrap\">\n              <img id=\"specImg\" alt=\"Mel-Spectrogram\" />\n              <div id=\"specPlaceholder\" class=\"placeholder\">Mel-Spectrogram will appear after analysis.</div>\n            </div>\n          </div>\n        </div>\n      </section>\n\n      <section id=\"historyView\" class=\"view\">\n        <div class=\"panel\">\n          <div class=\"panel-header\">\n            <div>\n              <h2>History Records</h2>\n              <p class=\"subtext\">Search, review, and delete previous prediction records.</p>\n            </div>\n          </div>\n          <div class=\"toolbar\">\n            <button id=\"refreshHistoryBtn\" class=\"btn btn-secondary\">Refresh History</button>\n            <button id=\"deleteAllHistoryBtn\" class=\"btn btn-danger\">Delete All History</button>\n            <input id=\"historySearch\" class=\"search-input\" placeholder=\"Search by file, prediction, model, or remark...\" />\n          </div>\n          <div class=\"table-wrap\">\n            <table>\n              <thead>\n                <tr>\n                  <th>ID</th>\n                  <th>Time</th>\n                  <th>File</th>\n                  <th>Prediction</th>\n                  <th>Confidence</th>\n                  <th>Model</th>\n                  <th>Remark</th>\n                  <th>Action</th>\n                </tr>\n              </thead>\n              <tbody id=\"historyBody\">\n                <tr><td colspan=\"8\" class=\"placeholder\">Click Refresh History.</td></tr>\n              </tbody>\n            </table>\n          </div>\n        </div>\n      </section>\n\n      <section id=\"databaseView\" class=\"view\">\n        <div class=\"panel\">\n          <div class=\"panel-header\">\n            <div>\n              <h2>Database Manager</h2>\n              <p class=\"subtext\">Monitor database counts and manage stored audio records.</p>\n            </div>\n            <button id=\"refreshDbBtn\" class=\"btn btn-secondary\">Refresh Database View</button>\n          </div>\n\n          <div class=\"stats-grid\">\n            <div class=\"stat-card\"><div class=\"metric-label\">Audio Files</div><div id=\"statAudio\" class=\"number\">0</div></div>\n            <div class=\"stat-card\"><div class=\"metric-label\">Prediction Results</div><div id=\"statResults\" class=\"number\">0</div></div>\n            <div class=\"stat-card\"><div class=\"metric-label\">Today Results</div><div id=\"statToday\" class=\"number\">0</div></div>\n          </div>\n\n          <div class=\"toolbar\">\n            <input id=\"audioSearch\" class=\"search-input\" placeholder=\"Search audio file path, file name, or disease type...\" />\n          </div>\n\n          <div class=\"table-wrap\">\n            <table>\n              <thead>\n                <tr>\n                  <th>Audio ID</th>\n                  <th>File Name</th>\n                  <th>Disease Type</th>\n                  <th>File Path</th>\n                  <th>Action</th>\n                </tr>\n              </thead>\n              <tbody id=\"audioBody\">\n                <tr><td colspan=\"5\" class=\"placeholder\">Click Refresh Database View.</td></tr>\n              </tbody>\n            </table>\n          </div>\n        </div>\n      </section>\n    </main>\n  </div>\n\n  <div id=\"spectrogramModal\" class=\"image-modal\" aria-hidden=\"true\">\n    <div class=\"modal-content\">\n      <div class=\"modal-header\">\n        <h3>Mel-Spectrogram Enlarged View</h3>\n        <button id=\"closeSpectrogramModal\" class=\"btn btn-secondary\">Close</button>\n      </div>\n      <div class=\"modal-image-wrap\">\n        <img id=\"modalSpecImg\" alt=\"Enlarged Mel-Spectrogram\" />\n      </div>\n    </div>\n  </div>\n\n  <script>\n    const CLASS_MAP = {\n      \"asthma\": \"Asthma-compatible Airway Pattern\",\n      \"bronchial asthma\": \"Asthma-compatible Airway Pattern\",\n      \"asthma-compatible airway pattern\": \"Asthma-compatible Airway Pattern\",\n      \"bronchial\": \"Bronchial Respiratory Sound Abnormality\",\n      \"bronchitis\": \"Bronchial Respiratory Sound Abnormality\",\n      \"bronchial respiratory sound abnormality\": \"Bronchial Respiratory Sound Abnormality\",\n      \"copd\": \"Chronic Obstructive Pulmonary Disease\",\n      \"chronic obstructive pulmonary disease\": \"Chronic Obstructive Pulmonary Disease\",\n      \"healthy\": \"Normal Respiratory Sound Pattern\",\n      \"normal\": \"Normal Respiratory Sound Pattern\",\n      \"normal respiratory sound pattern\": \"Normal Respiratory Sound Pattern\",\n      \"pneumonia\": \"Pneumonia-compatible Respiratory Pattern\",\n      \"pneumonia-compatible respiratory pattern\": \"Pneumonia-compatible Respiratory Pattern\"\n    };\n\n    const wavFile = document.getElementById(\"wavFile\");\n    const dropZone = document.getElementById(\"dropZone\");\n    const runBtn = document.getElementById(\"runBtn\");\n    const clearFileBtn = document.getElementById(\"clearFileBtn\");\n    const clearResultBtn = document.getElementById(\"clearResultBtn\");\n    const statusDot = document.getElementById(\"statusDot\");\n    const statusText = document.getElementById(\"statusText\");\n    const fileName = document.getElementById(\"fileName\");\n    const spectrogramModal = document.getElementById(\"spectrogramModal\");\n    const closeSpectrogramModal = document.getElementById(\"closeSpectrogramModal\");\n    const modalSpecImg = document.getElementById(\"modalSpecImg\");\n\n    let historyItems = [];\n    let audioItems = [];\n\n    function escapeHtml(value) {\n      return String(value === undefined || value === null ? \"\" : value)\n        .replace(/&/g, \"&amp;\")\n        .replace(/</g, \"&lt;\")\n        .replace(/>/g, \"&gt;\")\n        .replace(/\"/g, \"&quot;\")\n        .replace(/'/g, \"&#39;\");\n    }\n\n    function setStatus(type, text) {\n      statusDot.className = \"dot\" + (type ? \" \" + type : \"\");\n      statusText.textContent = text;\n    }\n\n    function mapClassName(name) {\n      const key = String(name || \"\").trim().toLowerCase();\n      return CLASS_MAP[key] || name || \"-\";\n    }\n\n    function formatFlag(flag) {\n      if (!flag) return \"-\";\n      return String(flag).replace(/_/g, \" \").replace(/\\\\b\\\\w/g, function(c) { return c.toUpperCase(); });\n    }\n\n    function percent(v) {\n      if (typeof v !== \"number\" || !isFinite(v)) return \"-\";\n      return (v * 100).toFixed(2) + \"%\";\n    }\n\n    function fileToBase64(file) {\n      return new Promise(function(resolve, reject) {\n        const reader = new FileReader();\n        reader.onload = function() {\n          const result = reader.result || \"\";\n          resolve(String(result).split(\",\")[1] || \"\");\n        };\n        reader.onerror = reject;\n        reader.readAsDataURL(file);\n      });\n    }\n\n    function formatTime(value) {\n      if (!value) return \"-\";\n      const d = new Date(value);\n      if (isNaN(d.getTime())) return value;\n      return d.toLocaleString();\n    }\n\n    function adviceForClass(name) {\n      const key = String(name || \"\").toLowerCase();\n\n      if (key.includes(\"pneumonia\")) {\n        return {\n          checks: \"Check fever, cough, sputum, dyspnea, oxygen saturation, respiratory rate, temperature, and auscultation correlation.\",\n          adjunct: \"If pneumonia is clinically suspected, consider chest imaging and inflammatory markers such as CBC, CRP, or procalcitonin according to local practice.\",\n          priority: \"Early clinician review is recommended when abnormal vital signs, hypoxemia, or systemic symptoms are present.\"\n        };\n      }\n\n      if (key.includes(\"chronic obstructive\") || key.includes(\"copd\")) {\n        return {\n          checks: \"Check chronic cough, sputum, dyspnea, wheeze, smoking or exposure history, known COPD history, oxygen saturation, respiratory rate, and auscultation.\",\n          adjunct: \"If obstructive airway disease is suspected, consider spirometry context, bronchodilator-response history, and baseline oxygenation.\",\n          priority: \"Clinician review is recommended to distinguish chronic baseline findings from acute exacerbation.\"\n        };\n      }\n\n      if (key.includes(\"asthma\")) {\n        return {\n          checks: \"Check episodic wheeze, cough, chest tightness, dyspnea, trigger exposure, prior asthma history, oxygen saturation, respiratory rate, and auscultation.\",\n          adjunct: \"If asthma is clinically suspected, consider peak-flow or spirometry context and bronchodilator-response history when appropriate.\",\n          priority: \"Clinician review is recommended when symptoms are active, oxygenation is abnormal, or respiratory distress is present.\"\n        };\n      }\n\n      if (key.includes(\"bronchial\")) {\n        return {\n          checks: \"Check cough, sputum, wheeze, rhonchi, airway secretion, dyspnea, oxygen saturation, respiratory rate, and auscultation correlation.\",\n          adjunct: \"Consider repeat recording if the signal is noisy; consider spirometry context if airway obstruction is suspected.\",\n          priority: \"Clinician review is recommended to determine whether the pattern reflects obstruction, secretion, or recording artifact.\"\n        };\n      }\n\n      if (key.includes(\"normal\") || key.includes(\"healthy\")) {\n        return {\n          checks: \"Confirm recording quality and check whether symptoms, vital signs, or auscultation findings are discordant with the low-abnormal audio pattern.\",\n          adjunct: \"If symptoms persist despite a low-abnormal output, consider repeat recording or additional clinical assessment.\",\n          priority: \"Routine review may be appropriate unless symptoms or abnormal vital signs suggest otherwise.\"\n        };\n      }\n\n      return {\n        checks: \"Check symptom duration, cough, sputum, wheeze, fever, dyspnea, oxygen saturation, respiratory rate, auscultation findings, and prior respiratory history.\",\n        adjunct: \"Choose adjunct examinations according to the clinical scenario.\",\n        priority: \"Manual clinician review is recommended.\"\n      };\n    }\n\n    function renderClinicalAdvice(name, r) {\n      const fallback = adviceForClass(name);\n      const checks = r && r.focused_checks ? r.focused_checks : fallback.checks;\n      const adjunct = r && r.suggested_adjunct_examinations ? r.suggested_adjunct_examinations : fallback.adjunct;\n      const priority = r && r.review_priority_text ? r.review_priority_text : fallback.priority;\n\n      document.getElementById(\"clinicalAdvice\").innerHTML =\n        '<div class=\"advice-card\"><strong>Focused Checks</strong><span>' + escapeHtml(checks) + '</span></div>' +\n        '<div class=\"advice-card\"><strong>Suggested Adjunct Examinations</strong><span>' + escapeHtml(adjunct) + '</span></div>' +\n        '<div class=\"advice-card\"><strong>Review Priority</strong><span>' + escapeHtml(priority) + '</span></div>';\n    }\n\n    function clearResultsOnly() {\n      document.getElementById(\"predClass\").textContent = \"-\";\n      document.getElementById(\"confidence\").textContent = \"-\";\n      document.getElementById(\"confidenceLevel\").textContent = \"-\";\n      document.getElementById(\"abnormalProb\").textContent = \"-\";\n      document.getElementById(\"reviewFlag\").textContent = \"-\";\n      document.getElementById(\"reviewReason\").textContent = \"-\";\n      document.getElementById(\"inferTime\").textContent = \"-\";\n      document.getElementById(\"top3\").innerHTML = '<div class=\"placeholder\">No prediction yet.</div>';\n      document.getElementById(\"summaryText\").textContent = \"No summary yet.\";\n      document.getElementById(\"summarySource\").textContent = \"-\";\n      document.getElementById(\"geminiUsed\").textContent = \"-\";\n      document.getElementById(\"clinicalAdvice\").innerHTML =\n        '<div class=\"advice-card\"><strong>Focused Checks</strong><span>No prediction yet.</span></div>' +\n        '<div class=\"advice-card\"><strong>Suggested Adjunct Examinations</strong><span>No prediction yet.</span></div>' +\n        '<div class=\"advice-card\"><strong>Review Priority</strong><span>No prediction yet.</span></div>';\n\n      const debugBox = document.getElementById(\"geminiDebugBox\");\n      debugBox.style.display = \"none\";\n      debugBox.textContent = \"\";\n\n      const img = document.getElementById(\"specImg\");\n      const placeholder = document.getElementById(\"specPlaceholder\");\n      img.removeAttribute(\"src\");\n      img.style.display = \"none\";\n      placeholder.style.display = \"block\";\n\n      modalSpecImg.removeAttribute(\"src\");\n      spectrogramModal.classList.remove(\"open\");\n      spectrogramModal.setAttribute(\"aria-hidden\", \"true\");\n      setStatus(\"\", \"Ready\");\n    }\n\n    function resetLoadedFile() {\n      wavFile.value = \"\";\n      fileName.textContent = \"Choose WAV File\";\n      setStatus(\"\", \"Ready\");\n    }\n\n    function renderTop3(top3Json) {\n      const box = document.getElementById(\"top3\");\n      let top3 = [];\n      try { top3 = JSON.parse(top3Json || \"[]\"); } catch (e) { top3 = []; }\n\n      if (!Array.isArray(top3) || top3.length === 0) {\n        box.innerHTML = '<div class=\"placeholder\">No prediction yet.</div>';\n        return;\n      }\n\n      box.innerHTML = top3.map(function(item) {\n        const raw = item.class_raw ? \"Raw: \" + item.class_raw : \"\";\n        return '<div class=\"top3-item\">' +\n          '<div class=\"rank\">#' + escapeHtml(item.rank) + '</div>' +\n          '<div>' +\n            '<div class=\"top3-title\">' + escapeHtml(mapClassName(item.class)) + '</div>' +\n            '<div class=\"top3-raw\">' + escapeHtml(raw) + '</div>' +\n          '</div>' +\n          '<div class=\"top3-score\">' + escapeHtml(percent(Number(item.score))) + '</div>' +\n        '</div>';\n      }).join(\"\");\n    }\n\n    function renderResult(r) {\n      const displayClass = mapClassName(r.predicted_class || r.primary_impression || r.predicted_class_raw || \"-\");\n\n      document.getElementById(\"predClass\").textContent = displayClass;\n      document.getElementById(\"confidence\").textContent = percent(Number(r.confidence));\n      document.getElementById(\"confidenceLevel\").textContent = formatFlag(r.confidence_level || \"-\");\n      document.getElementById(\"abnormalProb\").textContent = percent(Number(r.abnormal_probability));\n      document.getElementById(\"reviewFlag\").textContent = formatFlag(r.review_flag || \"-\");\n      document.getElementById(\"reviewReason\").textContent = formatFlag(r.review_reason || \"-\");\n      document.getElementById(\"inferTime\").textContent = typeof r.inference_time_ms === \"number\" ? r.inference_time_ms.toFixed(2) + \" ms\" : \"-\";\n      document.getElementById(\"summaryText\").textContent = r.summary_text || \"No summary available.\";\n      document.getElementById(\"summarySource\").textContent = r.summary_source || \"-\";\n      document.getElementById(\"geminiUsed\").textContent = r.gemini_used ? \"Yes\" : \"No\";\n\n      const debugBox = document.getElementById(\"geminiDebugBox\");\n      if (!r.gemini_used && (r.gemini_error || r.gemini_debug)) {\n        debugBox.style.display = \"block\";\n        debugBox.textContent = \"Gemini debug: \" + (r.gemini_error || \"\") + \"\\\\n\" + JSON.stringify(r.gemini_debug || {}, null, 2);\n      } else {\n        debugBox.style.display = \"none\";\n        debugBox.textContent = \"\";\n      }\n\n      renderTop3(r.top3_json);\n      renderClinicalAdvice(displayClass, r);\n\n      const img = document.getElementById(\"specImg\");\n      const placeholder = document.getElementById(\"specPlaceholder\");\n      if (r.spectrogram_url) {\n        img.src = r.spectrogram_url + \"?t=\" + Date.now();\n        img.style.display = \"block\";\n        placeholder.style.display = \"none\";\n      } else {\n        img.removeAttribute(\"src\");\n        img.style.display = \"none\";\n        placeholder.style.display = \"block\";\n      }\n    }\n\n    function openSpectrogramModal() {\n      const img = document.getElementById(\"specImg\");\n      if (!img.src) return;\n      modalSpecImg.src = img.src;\n      spectrogramModal.classList.add(\"open\");\n      spectrogramModal.setAttribute(\"aria-hidden\", \"false\");\n    }\n\n    function closeModal() {\n      spectrogramModal.classList.remove(\"open\");\n      spectrogramModal.setAttribute(\"aria-hidden\", \"true\");\n    }\n\n    async function runAnalysis() {\n      if (!wavFile.files || !wavFile.files[0]) {\n        alert(\"Please choose a .wav file first.\");\n        return;\n      }\n\n      const file = wavFile.files[0];\n      if (!file.name.toLowerCase().endsWith(\".wav\")) {\n        alert(\"Only .wav files are accepted.\");\n        return;\n      }\n\n      runBtn.disabled = true;\n      setStatus(\"running\", \"Analyzing\");\n\n      try {\n        const audio_base64 = await fileToBase64(file);\n        const response = await fetch(\"/api/infer\", {\n          method: \"POST\",\n          headers: { \"Content-Type\": \"application/json\" },\n          body: JSON.stringify({ file_name: file.name, audio_base64: audio_base64 })\n        });\n\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Analysis failed\");\n\n        renderResult(data.result || {});\n        setStatus(\"success\", \"Completed\");\n        await fetchHistory();\n        await fetchDbView();\n      } catch (error) {\n        setStatus(\"error\", \"Failed\");\n        alert(\"Analysis failed: \" + error.message);\n      } finally {\n        runBtn.disabled = false;\n      }\n    }\n\n    async function fetchHistory() {\n      const body = document.getElementById(\"historyBody\");\n      body.innerHTML = '<tr><td colspan=\"8\" class=\"placeholder\">Loading...</td></tr>';\n\n      try {\n        const response = await fetch(\"/api/history\");\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Failed to load history\");\n        historyItems = data.items || [];\n        renderHistory();\n      } catch (error) {\n        body.innerHTML = '<tr><td colspan=\"8\" class=\"placeholder\">Failed: ' + escapeHtml(error.message) + '</td></tr>';\n      }\n    }\n\n    function renderHistory() {\n      const body = document.getElementById(\"historyBody\");\n      const q = document.getElementById(\"historySearch\").value.toLowerCase().trim();\n      const filtered = historyItems.filter(function(item) { return JSON.stringify(item).toLowerCase().includes(q); });\n\n      if (filtered.length === 0) {\n        body.innerHTML = '<tr><td colspan=\"8\" class=\"placeholder\">No records found.</td></tr>';\n        return;\n      }\n\n      body.innerHTML = filtered.map(function(item) {\n        return '<tr>' +\n          '<td>' + escapeHtml(item.id) + '</td>' +\n          '<td>' + escapeHtml(formatTime(item.inference_time)) + '</td>' +\n          '<td>' + escapeHtml(item.file_name || \"\") + '</td>' +\n          '<td>' + escapeHtml(mapClassName(item.predicted_class || item.true_class || \"\")) + '</td>' +\n          '<td>' + escapeHtml(percent(Number(item.confidence))) + '</td>' +\n          '<td>' + escapeHtml(item.model_name || \"\") + '</td>' +\n          '<td>' + escapeHtml(item.remark || \"\") + '</td>' +\n          '<td><button class=\"btn btn-danger\" onclick=\"deleteHistoryRecord(' + Number(item.id) + ')\">Delete</button></td>' +\n        '</tr>';\n      }).join(\"\");\n    }\n\n    async function deleteHistoryRecord(id) {\n      if (!confirm(\"Delete history record #\" + id + \"?\")) return;\n\n      try {\n        const response = await fetch(\"/api/result/\" + id, { method: \"DELETE\" });\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Delete failed\");\n        await fetchHistory();\n        await fetchDbView();\n      } catch (error) {\n        alert(\"Delete failed: \" + error.message);\n      }\n    }\n\n    async function deleteAllHistory() {\n      if (!confirm(\"Delete ALL history records? This action cannot be undone.\")) return;\n\n      try {\n        const response = await fetch(\"/api/history/all\", { method: \"DELETE\" });\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Delete all failed\");\n        await fetchHistory();\n        await fetchDbView();\n        alert(\"All history records deleted.\");\n      } catch (error) {\n        alert(\"Delete all failed: \" + error.message);\n      }\n    }\n\n    async function fetchDbStats() {\n      const response = await fetch(\"/api/db/stats\");\n      const data = await response.json();\n      if (!data.ok) throw new Error(data.error || \"Failed to load stats\");\n      const stats = data.stats || {};\n      document.getElementById(\"statAudio\").textContent = stats.audio_count || 0;\n      document.getElementById(\"statResults\").textContent = stats.result_count || 0;\n      document.getElementById(\"statToday\").textContent = stats.today_result_count || 0;\n    }\n\n    async function fetchAudioFiles() {\n      const body = document.getElementById(\"audioBody\");\n      body.innerHTML = '<tr><td colspan=\"5\" class=\"placeholder\">Loading...</td></tr>';\n\n      try {\n        const response = await fetch(\"/api/audio-files\");\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Failed to load audio files\");\n        audioItems = data.items || [];\n        renderAudioFiles();\n      } catch (error) {\n        body.innerHTML = '<tr><td colspan=\"5\" class=\"placeholder\">Failed: ' + escapeHtml(error.message) + '</td></tr>';\n      }\n    }\n\n    function renderAudioFiles() {\n      const body = document.getElementById(\"audioBody\");\n      const q = document.getElementById(\"audioSearch\").value.toLowerCase().trim();\n      const filtered = audioItems.filter(function(item) { return JSON.stringify(item).toLowerCase().includes(q); });\n\n      if (filtered.length === 0) {\n        body.innerHTML = '<tr><td colspan=\"5\" class=\"placeholder\">No audio records found.</td></tr>';\n        return;\n      }\n\n      body.innerHTML = filtered.map(function(item) {\n        return '<tr>' +\n          '<td>' + escapeHtml(item.id) + '</td>' +\n          '<td>' + escapeHtml(item.file_name || \"\") + '</td>' +\n          '<td>' + escapeHtml(mapClassName(item.disease_type || \"\")) + '</td>' +\n          '<td>' + escapeHtml(item.file_path || \"\") + '</td>' +\n          '<td><button class=\"btn btn-danger\" onclick=\"deleteAudioFile(' + Number(item.id) + ')\">Delete</button></td>' +\n        '</tr>';\n      }).join(\"\");\n    }\n\n    async function deleteAudioFile(id) {\n      if (!confirm(\"Delete audio file record #\" + id + \" and related prediction results?\")) return;\n\n      try {\n        const response = await fetch(\"/api/audio/\" + id, { method: \"DELETE\" });\n        const data = await response.json();\n        if (!data.ok) throw new Error(data.error || \"Delete audio failed\");\n        await fetchDbView();\n        await fetchHistory();\n      } catch (error) {\n        alert(\"Delete audio failed: \" + error.message);\n      }\n    }\n\n    async function fetchDbView() {\n      try {\n        await fetchDbStats();\n        await fetchAudioFiles();\n      } catch (error) {\n        alert(\"Database refresh failed: \" + error.message);\n      }\n    }\n\n    dropZone.addEventListener(\"click\", function() { wavFile.click(); });\n    wavFile.addEventListener(\"change\", function() {\n      if (wavFile.files && wavFile.files[0]) fileName.textContent = wavFile.files[0].name;\n    });\n\n    runBtn.addEventListener(\"click\", runAnalysis);\n    clearFileBtn.addEventListener(\"click\", resetLoadedFile);\n    clearResultBtn.addEventListener(\"click\", clearResultsOnly);\n\n    document.getElementById(\"specImg\").addEventListener(\"click\", openSpectrogramModal);\n    closeSpectrogramModal.addEventListener(\"click\", closeModal);\n    spectrogramModal.addEventListener(\"click\", function(event) {\n      if (event.target === spectrogramModal) closeModal();\n    });\n    document.addEventListener(\"keydown\", function(event) {\n      if (event.key === \"Escape\") closeModal();\n    });\n\n    document.getElementById(\"refreshHistoryBtn\").addEventListener(\"click\", fetchHistory);\n    document.getElementById(\"deleteAllHistoryBtn\").addEventListener(\"click\", deleteAllHistory);\n    document.getElementById(\"historySearch\").addEventListener(\"input\", renderHistory);\n    document.getElementById(\"refreshDbBtn\").addEventListener(\"click\", fetchDbView);\n    document.getElementById(\"audioSearch\").addEventListener(\"input\", renderAudioFiles);\n\n    document.querySelectorAll(\".nav-btn\").forEach(function(btn) {\n      btn.addEventListener(\"click\", async function() {\n        document.querySelectorAll(\".nav-btn\").forEach(function(b) { b.classList.remove(\"active\"); });\n        document.querySelectorAll(\".view\").forEach(function(v) { v.classList.remove(\"active\"); });\n\n        btn.classList.add(\"active\");\n        const viewId = btn.getAttribute(\"data-view\");\n        document.getElementById(viewId).classList.add(\"active\");\n\n        if (viewId === \"historyView\") await fetchHistory();\n        if (viewId === \"databaseView\") await fetchDbView();\n      });\n    });\n\n    window.deleteHistoryRecord = deleteHistoryRecord;\n    window.deleteAllHistory = deleteAllHistory;\n    window.deleteAudioFile = deleteAudioFile;\n\n    setStatus(\"\", \"Ready\");\n  </script>\n</body>\n</html>`;\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 580,
+    "wires": [
+      [
+        "387555c066ae7a09"
+      ]
+    ]
+  },
+  {
+    "id": "387555c066ae7a09",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "Demo Page Response",
+    "statusCode": "",
+    "headers": {},
+    "x": 640,
+    "y": 580,
+    "wires": []
+  },
+  {
+    "id": "a6abb3cf4997c5dc",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/audio-files 音檔資料",
+    "url": "/api/audio-files",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 130,
+    "y": 690,
+    "wires": [
+      [
+        "0ead9b2543593da4"
+      ]
+    ]
+  },
+  {
+    "id": "0ead9b2543593da4",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立音檔資料查詢 SQL",
+    "func": "msg.topic = \"SELECT id, file_name, disease_type, file_path, upload_time, remark FROM audio_files ORDER BY id DESC LIMIT 200\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 410,
+    "y": 690,
+    "wires": [
+      [
+        "300f6d6288534326"
+      ]
+    ]
+  },
+  {
+    "id": "300f6d6288534326",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "查詢 audio_files",
+    "x": 670,
+    "y": 690,
+    "wires": [
+      [
+        "47c1ac14ec3a8f38"
+      ]
+    ]
+  },
+  {
+    "id": "47c1ac14ec3a8f38",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳音檔資料",
+    "func": "msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, items: msg.payload || [] };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 910,
+    "y": 690,
+    "wires": [
+      [
+        "c8ca8c99a261e969"
+      ]
+    ]
+  },
+  {
+    "id": "c8ca8c99a261e969",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "音檔資料回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1140,
+    "y": 690,
+    "wires": []
+  },
+  {
+    "id": "b361f1afb39f8f92",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/db/stats 資料庫統計",
+    "url": "/api/db/stats",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 140,
+    "y": 780,
+    "wires": [
+      [
+        "b4051a91089ae99d"
+      ]
+    ]
+  },
+  {
+    "id": "b4051a91089ae99d",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立資料庫統計 SQL",
+    "func": "msg.topic = `\nSELECT\n    (SELECT COUNT(*) FROM audio_files) AS audio_count,\n    (SELECT COUNT(*) FROM prediction_results) AS result_count,\n    (SELECT COUNT(*) FROM prediction_results WHERE DATE(inference_time) = CURDATE()) AS today_result_count\n`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 780,
+    "wires": [
+      [
+        "d023a04f441c39ee"
+      ]
+    ]
+  },
+  {
+    "id": "d023a04f441c39ee",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "查詢資料庫統計",
+    "x": 680,
+    "y": 780,
+    "wires": [
+      [
+        "c0e63b18e9895a03"
+      ]
+    ]
+  },
+  {
+    "id": "c0e63b18e9895a03",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳資料庫統計",
+    "func": "const rows = msg.payload || [];\nmsg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, stats: rows[0] || { audio_count: 0, result_count: 0, today_result_count: 0 } };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 920,
+    "y": 780,
+    "wires": [
+      [
+        "81133948c026841e"
+      ]
+    ]
+  },
+  {
+    "id": "81133948c026841e",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "資料庫統計回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1150,
+    "y": 780,
+    "wires": []
+  },
+  {
+    "id": "bfce1db9cc64e179",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "DELETE /api/audio/:id 刪除音檔資料",
+    "url": "/api/audio/:id",
+    "method": "delete",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 920,
+    "wires": [
+      [
+        "c86db0a1e4e748d2"
+      ]
+    ]
+  },
+  {
+    "id": "c86db0a1e4e748d2",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "先刪除該音檔相關 prediction_results",
+    "func": "const id = Number(msg.req.params.id);\n\nif (!Number.isInteger(id) || id <= 0) {\n    msg.statusCode = 400;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = { ok: false, error: \"無效的 audio id\" };\n    return [null, msg];\n}\n\nmsg.audio_delete_id = id;\nmsg.topic = `DELETE FROM prediction_results WHERE audio_id = ${id}`;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 920,
+    "wires": [
+      [
+        "2a7cf86ecf02391e"
+      ],
+      [
+        "0e1ad4b39bae2b9b"
+      ]
+    ]
+  },
+  {
+    "id": "2a7cf86ecf02391e",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "刪除該音檔 prediction_results",
+    "x": 870,
+    "y": 920,
+    "wires": [
+      [
+        "9081fb72a7131cac"
+      ]
+    ]
+  },
+  {
+    "id": "9081fb72a7131cac",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "再刪除 audio_files",
+    "func": "const id = Number(msg.audio_delete_id);\n\nif (!Number.isInteger(id) || id <= 0) {\n    msg.statusCode = 500;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = { ok: false, error: \"刪除 audio_files 前遺失 audio id\" };\n    return [null, msg];\n}\n\nmsg.topic = `DELETE FROM audio_files WHERE id = ${id}`;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1130,
+    "y": 920,
+    "wires": [
+      [
+        "55907b5762850171"
+      ],
+      [
+        "0e1ad4b39bae2b9b"
+      ]
+    ]
+  },
+  {
+    "id": "55907b5762850171",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "刪除 audio_files",
+    "x": 1360,
+    "y": 920,
+    "wires": [
+      [
+        "80bbc45a463be58f"
+      ]
+    ]
+  },
+  {
+    "id": "80bbc45a463be58f",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳刪除音檔結果",
+    "func": "msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, deleted_audio_id: msg.audio_delete_id };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1590,
+    "y": 920,
+    "wires": [
+      [
+        "0e1ad4b39bae2b9b"
+      ]
+    ]
+  },
+  {
+    "id": "0e1ad4b39bae2b9b",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "刪除音檔回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1820,
+    "y": 920,
+    "wires": []
+  },
+  {
+    "id": "c06794c747567ca2",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立 audio_files 寫入 SQL",
+    "func": "function esc(v) {\n    if (v === undefined || v === null || v === \"\") return \"NULL\";\n    return \"'\" + String(v).replace(/\\\\/g, \"\\\\\\\\\").replace(/'/g, \"''\") + \"'\";\n}\n\nconst r = msg.payload || {};\nmsg.result = r;\n\nconst fileName = r.file_name || \"\";\nconst diseaseType = r.true_class || r.predicted_class || \"Unknown Respiratory Class\";\nconst filePath = r.wav_path || r.audio_path || \"\";\n\nmsg.topic = `INSERT INTO audio_files (file_name, disease_type, file_path, remark)\nVALUES (${esc(fileName)}, ${esc(diseaseType)}, ${esc(filePath)}, ${esc(\"uploaded_from_clinical_demo\")})`;\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2880,
+    "y": 80,
+    "wires": [
+      [
+        "96b3b6c9e464e2c3"
+      ]
+    ]
+  },
+  {
+    "id": "96b3b6c9e464e2c3",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "寫入 audio_files",
+    "x": 3130,
+    "y": 80,
+    "wires": [
+      [
+        "5cf406a2a8b9cf5d"
+      ]
+    ]
+  },
+  {
+    "id": "5cf406a2a8b9cf5d",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "取得 audio_id",
+    "func": "const r = msg.result || {};\nconst dbResult = msg.payload || {};\n\n/*\n  node-red-node-mysql 對 INSERT 通常會回傳 insertId。\n  這個 insertId 就是剛剛寫入 audio_files 的 id。\n*/\nif (!dbResult.insertId) {\n    msg.statusCode = 500;\n    msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\n    msg.payload = {\n        ok: false,\n        error: \"寫入 audio_files 成功但沒有取得 insertId，無法建立 prediction_results.audio_id\",\n        mysql_result: dbResult\n    };\n    return [null, msg];\n}\n\nr.audio_id = Number(dbResult.insertId);\nmsg.payload = r;\nreturn [msg, null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3370,
+    "y": 80,
+    "wires": [
+      [
+        "5aa32f764a457c4c"
+      ],
+      [
+        "0293586db94d4f84"
+      ]
+    ]
+  },
+  {
+    "id": "d76a34a0e5c13342",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "DELETE /api/history/all 刪除全部歷史紀錄",
+    "url": "/api/history/all",
+    "method": "delete",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 240,
+    "y": 1020,
+    "wires": [
+      [
+        "f01f1bb64a363e12"
+      ]
+    ]
+  },
+  {
+    "id": "f01f1bb64a363e12",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "建立刪除全部歷史 SQL",
+    "func": "msg.topic = `DELETE FROM prediction_results`;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 520,
+    "y": 1020,
+    "wires": [
+      [
+        "8ba910a2ce572905"
+      ]
+    ]
+  },
+  {
+    "id": "8ba910a2ce572905",
+    "type": "mysql",
+    "z": "0bb10a78a4de5a69",
+    "mydb": "fe68e0c7540e7f39",
+    "name": "刪除全部歷史紀錄",
+    "x": 780,
+    "y": 1020,
+    "wires": [
+      [
+        "58407a0453c96e14"
+      ]
+    ]
+  },
+  {
+    "id": "58407a0453c96e14",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳刪除全部歷史結果",
+    "func": "msg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = { ok: true, message: \"All history records deleted\" };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1060,
+    "y": 1020,
+    "wires": [
+      [
+        "7856a550bf7b6a65"
+      ]
+    ]
+  },
+  {
+    "id": "7856a550bf7b6a65",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "刪除全部歷史回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 1320,
+    "y": 1020,
+    "wires": []
+  },
+  {
+    "id": "face79d341020b8e",
+    "type": "debug",
+    "z": "0bb10a78a4de5a69",
+    "name": "除錯：Gemini raw response",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 2640,
+    "y": 20,
+    "wires": []
+  },
+  {
+    "id": "ed8f276574eb9a2f",
+    "type": "http in",
+    "z": "0bb10a78a4de5a69",
+    "name": "GET /api/gemini/status Gemini 狀態",
+    "url": "/api/gemini/status",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 270,
+    "y": 1100,
+    "wires": [
+      [
+        "ee7ee70da987f237"
+      ]
+    ]
+  },
+  {
+    "id": "ee7ee70da987f237",
+    "type": "function",
+    "z": "0bb10a78a4de5a69",
+    "name": "回傳 Gemini 狀態",
+    "func": "const apiKey = env.get(\"GEMINI_API_KEY\");\nmsg.headers = { \"Access-Control-Allow-Origin\": \"*\" };\nmsg.payload = {\n    ok: true,\n    key_detected: !!apiKey,\n    key_length: apiKey ? String(apiKey).length : 0,\n    model: \"gemini-3.1-flash-lite-preview\",\n    endpoint: \"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent\",\n    note: apiKey ? \"Node-RED can read GEMINI_API_KEY.\" : \"Node-RED cannot read GEMINI_API_KEY. Set it in the same PowerShell window before starting node-red.cmd.\"\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 1100,
+    "wires": [
+      [
+        "c0f0a12c91d9686c"
+      ]
+    ]
+  },
+  {
+    "id": "c0f0a12c91d9686c",
+    "type": "http response",
+    "z": "0bb10a78a4de5a69",
+    "name": "Gemini 狀態回應",
+    "statusCode": "",
+    "headers": {},
+    "x": 800,
+    "y": 1100,
+    "wires": []
+  },
+  {
+    "id": "fe68e0c7540e7f39",
+    "type": "MySQLdatabase",
+    "name": "respiratory_audio_db",
+    "host": "127.0.0.1",
+    "port": "3306",
+    "db": "respiratory_audio_db",
+    "tz": "",
+    "charset": "UTF8MB4"
+  },
+  {
+    "id": "087b8291ef563429",
+    "type": "global-config",
+    "env": [],
+    "modules": {
+      "node-red-node-mysql": "3.0.0"
+    }
+  }
+]

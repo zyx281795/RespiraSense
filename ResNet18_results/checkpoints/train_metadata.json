@@ -1,0 +1,21 @@
+{
+  "model_name": "ResNet18_LogMel_ClinicalUI_Rerun_vFinal",
+  "best_epoch": 16,
+  "best_val_acc": 0.9547325102880658,
+  "best_val_macro_f1": 0.9504996669919649,
+  "best_val_balanced_accuracy": 0.9528615840367202,
+  "num_train_records": 971,
+  "num_val_records": 243,
+  "target_sr": 16000,
+  "target_duration_sec": 5,
+  "n_mels": 128,
+  "image_size": 224,
+  "class_names": [
+    "asthma",
+    "Bronchial",
+    "copd",
+    "healthy",
+    "pneumonia"
+  ],
+  "dataset_root": "C:\\Users\\ecent\\Desktop\\NodeRed\\Asthma Detection Dataset Version 2\\Asthma Detection Dataset Version 2"
+}

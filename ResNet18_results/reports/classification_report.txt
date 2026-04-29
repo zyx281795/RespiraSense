@@ -1,0 +1,11 @@
+              precision    recall  f1-score   support
+
+      asthma     0.9811    0.8966    0.9369        58
+   Bronchial     1.0000    0.9524    0.9756        21
+        copd     0.9875    0.9875    0.9875        80
+     healthy     0.8667    0.9630    0.9123        27
+   pneumonia     0.9167    0.9649    0.9402        57
+
+    accuracy                         0.9547       243
+   macro avg     0.9504    0.9529    0.9505       243
+weighted avg     0.9570    0.9547    0.9549       243
