@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RespiraSense AI Console</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #eef4fb;
+      --surface: #ffffff;
+      --surface-2: #f7fbff;
+      --text: #102033;
+      --muted: #66788f;
+      --line: #dbe7f3;
+      --primary: #2563eb;
+      --primary-2: #0f766e;
+      --primary-soft: #e8f0ff;
+      --teal-soft: #e8fbf8;
+      --warning: #e08a00;
+      --warning-soft: #fff6e7;
+      --danger: #c0392b;
+      --danger-soft: #fff0ef;
+      --success: #17834f;
+      --success-soft: #ebf9f1;
+      --shadow: 0 20px 60px rgba(16, 32, 51, 0.08);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 35%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 32%),
+        var(--bg);
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      min-height: 100vh;
+      gap: 22px;
+      padding: 22px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 22px;
+      height: calc(100vh - 44px);
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(219, 231, 243, 0.9);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px;
+    }
+
+    .brand-mark {
+      width: 58px;
+      height: 58px;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 16px 36px rgba(37, 99, 235, 0.25);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 23px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav button {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 18px;
+      padding: 15px 15px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 17px;
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .nav button:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .nav button.active {
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--primary), #1d4ed8);
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.22);
+    }
+
+    .nav-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(37, 99, 235, 0.10);
+      color: var(--primary);
+      flex: 0 0 auto;
+    }
+
+    .nav button.active .nav-icon {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+
+    .status-card {
+      margin-top: auto;
+      border-radius: 24px;
+      padding: 18px;
+      background: linear-gradient(135deg, #f8fbff, #eef7ff);
+      border: 1px solid var(--line);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #7e8da4;
+    }
+
+    .dot.running { background: var(--warning); box-shadow: 0 0 0 7px rgba(224, 138, 0, 0.14); }
+    .dot.success { background: var(--success); box-shadow: 0 0 0 7px rgba(23, 131, 79, 0.14); }
+    .dot.error { background: var(--danger); box-shadow: 0 0 0 7px rgba(192, 57, 43, 0.14); }
+
+    .status-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .top-hero {
+      border-radius: var(--radius-xl);
+      color: #ffffff;
+      padding: 28px;
+      margin-bottom: 22px;
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(15, 118, 110, 0.92)),
+        radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.30), transparent 26%);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .top-hero:after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      bottom: -110px;
+      width: 310px;
+      height: 310px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .hero-kicker {
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.88;
+      margin-bottom: 8px;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: 42px;
+      letter-spacing: -0.05em;
+      line-height: 1.05;
+    }
+
+    .hero-copy {
+      margin: 12px 0 0;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.86);
+      max-width: 840px;
+    }
+
+    .hero-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .hero-mini-card {
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 20px;
+      padding: 16px;
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-mini-card strong {
+      display: block;
+      font-size: 25px;
+      margin-bottom: 4px;
+    }
+
+    .hero-mini-card span {
+      font-size: 13px;
+      opacity: 0.85;
+      font-weight: 800;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .grid {
+      display: grid;
+      gap: 22px;
+    }
+
+    .grid.two {
+      grid-template-columns: 430px 1fr;
+    }
+
+    .grid.two-even {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(219, 231, 243, 0.92);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      min-width: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.035em;
+    }
+
+    .panel p.subtext {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 16px;
+    }
+
+    .upload-zone {
+      margin-top: 18px;
+      border: 2px dashed #b7c8dd;
+      border-radius: 26px;
+      background:
+        linear-gradient(180deg, #fbfdff, #f3f8ff);
+      padding: 28px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    .upload-zone input { display: none; }
+
+    .upload-orb {
+      width: 76px;
+      height: 76px;
+      border-radius: 26px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 16px;
+      color: #ffffff;
+      font-size: 32px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 16px 38px rgba(37, 99, 235, 0.25);
+    }
+
+    .upload-title {
+      font-size: 23px;
+      font-weight: 900;
+      word-break: break-word;
+    }
+
+    .upload-help {
+      margin-top: 8px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+
+    .button-stack {
+      display: grid;
+      gap: 11px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--primary), #1d4ed8);
+      box-shadow: 0 14px 28px rgba(37, 99, 235, 0.20);
+    }
+
+    .btn-secondary {
+      color: var(--text);
+      background: #ffffff;
+      border-color: var(--line);
+    }
+
+    .btn-danger {
+      color: var(--danger);
+      background: var(--danger-soft);
+      border-color: #f4c3bd;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .metric-card {
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      padding: 16px;
+      min-height: 106px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .prediction-card {
+      margin-top: 14px;
+      border-radius: 26px;
+      padding: 22px;
+      border: 1px solid #cfe1f7;
+      background: linear-gradient(135deg, #f8fbff, #eef6ff);
+    }
+
+    .prediction-card .metric-label {
+      color: #41637d;
+    }
+
+    .prediction-value {
+      margin-top: 8px;
+      color: var(--primary);
+      font-size: 31px;
+      font-weight: 950;
+      letter-spacing: -0.04em;
+      line-height: 1.15;
+    }
+
+    .top3-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .top3-item {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface-2);
+      padding: 13px;
+    }
+
+    .rank {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-weight: 950;
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .top3-title {
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .top3-raw {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top3-score {
+      font-weight: 950;
+      color: var(--primary);
+    }
+
+    .advice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .advice-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, #ffffff, #f7fbff);
+      padding: 18px;
+      line-height: 1.6;
+    }
+
+    .advice-card strong {
+      display: block;
+      color: var(--primary-2);
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+
+    .summary-box {
+      min-height: 420px;
+      white-space: pre-wrap;
+      line-height: 1.72;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: #fbfdff;
+      padding: 20px;
+      overflow: auto;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 9px 13px;
+      color: var(--primary);
+      background: var(--primary-soft);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .debug-box {
+      display: none;
+      margin-top: 12px;
+      color: var(--danger);
+      background: var(--danger-soft);
+      border: 1px solid #f1bdb8;
+      border-radius: 18px;
+      padding: 14px;
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .spectrogram-wrap {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #fbfdff, #f6faff);
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .spectrogram-wrap img {
+      display: none;
+      max-width: 100%;
+      border-radius: 16px;
+      cursor: zoom-in;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .spectrogram-wrap img:hover {
+      transform: scale(1.01);
+      box-shadow: 0 18px 45px rgba(16, 32, 51, 0.18);
+    }
+
+    .placeholder {
+      color: #8a9bb1;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 270px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 15px;
+      font-size: 16px;
+      background: #ffffff;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th, td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #e7eff8;
+      text-align: left;
+      vertical-align: top;
+      font-size: 15px;
+    }
+
+    th {
+      color: var(--muted);
+      background: #f7fbff;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .stat-card {
+      border-radius: 24px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, #ffffff, #f7fbff);
+      padding: 18px;
+    }
+
+    .stat-card .number {
+      margin-top: 8px;
+      color: var(--primary);
+      font-size: 34px;
+      font-weight: 950;
+    }
+
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 14, 25, 0.84);
+      z-index: 9999;
+      padding: 26px;
+    }
+
+    .image-modal.open {
+      display: flex;
+    }
+
+    .modal-content {
+      width: min(96vw, 1280px);
+      max-height: 92vh;
+      background: #ffffff;
+      border-radius: 30px;
+      padding: 18px;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.40);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .modal-image-wrap {
+      max-height: calc(92vh - 92px);
+      overflow: auto;
+      border-radius: 22px;
+      background: #f7fbff;
+      border: 1px solid var(--line);
+      padding: 14px;
+      display: grid;
+      place-items: center;
+    }
+
+    .modal-image-wrap img {
+      max-width: 100%;
+      border-radius: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        top: 0;
+        height: auto;
+      }
+
+      .nav {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .status-card {
+        margin-top: 0;
+      }
+
+      .hero-content,
+      .grid.two,
+      .grid.two-even,
+      .metric-grid,
+      .advice-grid,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        padding: 12px;
+      }
+
+      .top-hero,
+      .panel,
+      .sidebar {
+        border-radius: 22px;
+      }
+
+      .hero-title {
+        font-size: 32px;
+      }
+
+      .nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  
+    /* v14 Tech Console Override */
+    :root {
+      --bg: #07111f;
+      --card: rgba(12, 24, 42, 0.88);
+      --line: rgba(34, 211, 238, 0.20);
+      --text: #eaf6ff;
+      --muted: #8fa7c2;
+      --blue: #22d3ee;
+      --blue-soft: rgba(34, 211, 238, 0.10);
+      --danger: #f87171;
+      --danger-soft: rgba(248, 113, 113, 0.12);
+      --success: #22c55e;
+      --success-soft: rgba(34, 197, 94, 0.12);
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.35);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34, 211, 238, 0.22), transparent 30%),
+        radial-gradient(circle at 88% 18%, rgba(139, 92, 246, 0.20), transparent 34%),
+        linear-gradient(135deg, #06101d, #0b1728) !important;
+      color: var(--text) !important;
+    }
+
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+      z-index: -1;
+    }
+
+    .sidebar,
+    .panel,
+    .top-hero,
+    .status-card {
+      background: linear-gradient(180deg, rgba(12, 24, 42, 0.92), rgba(7, 17, 31, 0.78)) !important;
+      border-color: rgba(34, 211, 238, 0.18) !important;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.36), 0 0 32px rgba(34,211,238,0.08) !important;
+    }
+
+    .top-hero {
+      color: var(--text) !important;
+      background:
+        linear-gradient(135deg, rgba(12, 24, 42, 0.94), rgba(15, 23, 42, 0.88)),
+        radial-gradient(circle at 84% 22%, rgba(34, 211, 238, 0.22), transparent 32%) !important;
+    }
+
+    .brand-mark,
+    .upload-icon,
+    .rank,
+    .nav button.active {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6, #8b5cf6) !important;
+      color: #06101d !important;
+      box-shadow: 0 0 28px rgba(34, 211, 238, 0.22) !important;
+    }
+
+    .nav button,
+    .tab-btn,
+    .secondary-btn,
+    .modal-close,
+    .search-input {
+      background: rgba(255,255,255,0.045) !important;
+      color: var(--text) !important;
+      border-color: rgba(34,211,238,0.18) !important;
+    }
+
+    .upload-box,
+    .prediction-box,
+    .metric,
+    .advice-card,
+    .summary-box,
+    .spectrogram-wrap,
+    .stat-card,
+    .table-wrap,
+    .top3-item,
+    .modal-content,
+    .modal-image-wrap {
+      background: rgba(255,255,255,0.045) !important;
+      border-color: rgba(34,211,238,0.16) !important;
+      color: var(--text) !important;
+    }
+
+    th {
+      background: rgba(34, 211, 238, 0.08) !important;
+      color: #67e8f9 !important;
+    }
+
+    td {
+      color: var(--text) !important;
+    }
+
+    .subtext,
+    .upload-help,
+    .label,
+    .small-text,
+    .placeholder {
+      color: var(--muted) !important;
+    }
+
+    .big-value,
+    .prediction-value,
+    .metric .value,
+    .stat-card .number,
+    .top3-score,
+    .badge {
+      color: #67e8f9 !important;
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6) !important;
+      color: #06101d !important;
+    }
+
+    .hero-title {
+      font-size: 40px !important;
+      letter-spacing: -0.055em !important;
+    }
+
+    .hero-copy {
+      max-width: 520px !important;
+      font-size: 16px !important;
+    }
+
+    .hero-mini-card {
+      background: rgba(34, 211, 238, 0.08) !important;
+      border-color: rgba(34, 211, 238, 0.18) !important;
+    }
+
+  
+
+    /* v17 Strong Contrast Fix */
+    /* Fix text that was still too light in upload and metric cards */
+    .upload-zone,
+    .prediction-card,
+    .metric-card,
+    .top3-item,
+    .advice-card,
+    .summary-box,
+    .spectrogram-wrap,
+    .table-wrap,
+    .stat-card,
+    .modal-content,
+    .modal-image-wrap {
+      background: #f7fbff !important;
+      border-color: #c7d9ee !important;
+      color: #13263f !important;
+      box-shadow: 0 8px 24px rgba(7, 17, 31, 0.08) !important;
+    }
+
+    /* Upload card text */
+    .upload-title,
+    #fileName {
+      color: #18324f !important;
+      font-weight: 900 !important;
+    }
+
+    .upload-help {
+      color: #4b6482 !important;
+      font-weight: 600 !important;
+    }
+
+    /* Labels like Confidence / Review Flag */
+    .metric-label,
+    .prediction-card .metric-label,
+    .metric-card .metric-label {
+      color: #506985 !important;
+      font-weight: 900 !important;
+      opacity: 1 !important;
+    }
+
+    /* Output values like -, 99.93%, Priority Review Recommended */
+    .metric-value,
+    .prediction-value,
+    .metric-card .metric-value,
+    .prediction-card .prediction-value,
+    #confidence,
+    #confidenceLevel,
+    #abnormalProb,
+    #reviewFlag,
+    #reviewReason,
+    #inferTime,
+    #predClass {
+      color: #0f2742 !important;
+      opacity: 1 !important;
+      font-weight: 900 !important;
+      text-shadow: none !important;
+    }
+
+    /* Keep main highlighted result blue but darker */
+    .prediction-value,
+    #predClass,
+    .top3-score,
+    .rank,
+    .badge,
+    .stat-card .number {
+      color: #0b57d0 !important;
+    }
+
+    .top3-title,
+    .advice-card,
+    .advice-card strong,
+    .summary-box,
+    .table-wrap th,
+    .table-wrap td,
+    .modal-content,
+    .modal-content h3,
+    .stat-card .label {
+      color: #13263f !important;
+    }
+
+    .top3-raw,
+    .subtext,
+    .small-text,
+    .placeholder {
+      color: #5c7390 !important;
+      opacity: 1 !important;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">RS</div>
+        <div>
+          <h1>RespiraSense</h1>
+          <span>AI Console</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" data-view="analysisView">
+          <span class="nav-icon">◎</span>
+          <span>Analysis</span>
+        </button>
+        <button class="nav-btn" data-view="historyView">
+          <span class="nav-icon">≡</span>
+          <span>History Records</span>
+        </button>
+        <button class="nav-btn" data-view="databaseView">
+          <span class="nav-icon">▦</span>
+          <span>Database Manager</span>
+        </button>
+      </nav>
+
+      <div class="status-card">
+        <div class="status-pill">
+          <span id="statusDot" class="dot"></span>
+          <span id="statusText">Ready</span>
+        </div>
+        <p>Upload. Analyze. Review.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="top-hero">
+        <div class="hero-content">
+          <div>
+            <div class="hero-kicker">Respiratory Sound Intelligence</div>
+            <h2 class="hero-title">AI Respiratory Review Console</h2>
+            <p class="hero-copy">WAV → Mel-Spectrogram → ResNet18 → Gemini 3.1 note.</p>
+          </div>
+          <div class="hero-mini-grid">
+            <div class="hero-mini-card"><strong>5</strong><span>Target classes</span></div>
+            <div class="hero-mini-card"><strong>Top-3</strong><span>Differential ranking</span></div>
+            <div class="hero-mini-card"><strong>3.1</strong><span>Gemini Flash-Lite</span></div>
+            <div class="hero-mini-card"><strong>DB</strong><span>Records</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="analysisView" class="view active">
+        <div class="grid two">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Upload Audio</h2>
+                <p class="subtext">Select a respiratory WAV file. Use Clear Loaded File when you want to choose another sample.</p>
+              </div>
+            </div>
+
+            <div id="dropZone" class="upload-zone">
+              <input id="wavFile" type="file" accept=".wav,audio/wav" />
+              <div class="upload-orb">♪</div>
+              <div id="fileName" class="upload-title">Choose WAV File</div>
+              <div class="upload-help">Supported format: .wav respiratory audio</div>
+            </div>
+
+            <div class="button-stack">
+              <button id="runBtn" class="btn btn-primary">Start Analysis</button>
+              <button id="clearFileBtn" class="btn btn-secondary">Clear Loaded File</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Prediction Result</h2>
+                <p class="subtext">Shows the model's most compatible respiratory audio pattern and risk indicators.</p>
+              </div>
+              <button id="clearResultBtn" class="btn btn-secondary">Clear Results</button>
+            </div>
+
+            <div class="prediction-card">
+              <div class="metric-label">Most Compatible Audio Pattern</div>
+              <div id="predClass" class="prediction-value">-</div>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric-card">
+                <div class="metric-label">Confidence</div>
+                <div id="confidence" class="metric-value">-</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Confidence Level</div>
+                <div id="confidenceLevel" class="metric-value">-</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Abnormal Probability</div>
+                <div id="abnormalProb" class="metric-value">-</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Review Flag</div>
+                <div id="reviewFlag" class="metric-value">-</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Review Reason</div>
+                <div id="reviewReason" class="metric-value">-</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Inference Time</div>
+                <div id="inferTime" class="metric-value">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two-even" style="margin-top:22px;">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Top-3 Ranked Patterns</h2>
+                <p class="subtext">Displays the top ranked model outputs for differential comparison.</p>
+              </div>
+            </div>
+            <div id="top3" class="top3-list">
+              <div class="placeholder">No prediction yet.</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Clinical Review Checklist</h2>
+                <p class="subtext">Immediate class-specific checks generated from model output.</p>
+              </div>
+            </div>
+            <div id="clinicalAdvice" class="advice-grid">
+              <div class="advice-card"><strong>Focused Checks</strong><span>No prediction yet.</span></div>
+              <div class="advice-card"><strong>Suggested Adjunct Examinations</strong><span>No prediction yet.</span></div>
+              <div class="advice-card"><strong>Review Priority</strong><span>No prediction yet.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two-even" style="margin-top:22px;">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Gemini Clinical Summary</h2>
+                <p class="subtext">Structured clinical decision-support note with limitations and review guidance.</p>
+              </div>
+            </div>
+            <div id="summaryText" class="summary-box">No summary yet.</div>
+            <div class="badge-row">
+              <div class="badge">Summary Source: <span id="summarySource">-</span></div>
+              <div class="badge">Gemini Used: <span id="geminiUsed">-</span></div>
+            </div>
+            <div id="geminiDebugBox" class="debug-box"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Mel-Spectrogram</h2>
+                <p class="subtext">Click the image to enlarge and inspect the time-frequency representation.</p>
+              </div>
+            </div>
+            <div class="spectrogram-wrap">
+              <img id="specImg" alt="Mel-Spectrogram" />
+              <div id="specPlaceholder" class="placeholder">Mel-Spectrogram will appear after analysis.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="historyView" class="view">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>History Records</h2>
+              <p class="subtext">Search, review, and delete previous prediction records.</p>
+            </div>
+          </div>
+          <div class="toolbar">
+            <button id="refreshHistoryBtn" class="btn btn-secondary">Refresh History</button>
+            <button id="deleteAllHistoryBtn" class="btn btn-danger">Delete All History</button>
+            <input id="historySearch" class="search-input" placeholder="Search by file, prediction, model, or remark..." />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Time</th>
+                  <th>File</th>
+                  <th>Prediction</th>
+                  <th>Confidence</th>
+                  <th>Model</th>
+                  <th>Remark</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr><td colspan="8" class="placeholder">Click Refresh History.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="databaseView" class="view">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Database Manager</h2>
+              <p class="subtext">Monitor database counts and manage stored audio records.</p>
+            </div>
+            <button id="refreshDbBtn" class="btn btn-secondary">Refresh Database View</button>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card"><div class="metric-label">Audio Files</div><div id="statAudio" class="number">0</div></div>
+            <div class="stat-card"><div class="metric-label">Prediction Results</div><div id="statResults" class="number">0</div></div>
+            <div class="stat-card"><div class="metric-label">Today Results</div><div id="statToday" class="number">0</div></div>
+          </div>
+
+          <div class="toolbar">
+            <input id="audioSearch" class="search-input" placeholder="Search audio file path, file name, or disease type..." />
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Audio ID</th>
+                  <th>File Name</th>
+                  <th>Disease Type</th>
+                  <th>File Path</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="audioBody">
+                <tr><td colspan="5" class="placeholder">Click Refresh Database View.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="spectrogramModal" class="image-modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Mel-Spectrogram Enlarged View</h3>
+        <button id="closeSpectrogramModal" class="btn btn-secondary">Close</button>
+      </div>
+      <div class="modal-image-wrap">
+        <img id="modalSpecImg" alt="Enlarged Mel-Spectrogram" />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CLASS_MAP = {
+      "asthma": "Asthma-compatible Airway Pattern",
+      "bronchial asthma": "Asthma-compatible Airway Pattern",
+      "asthma-compatible airway pattern": "Asthma-compatible Airway Pattern",
+      "bronchial": "Bronchial Respiratory Sound Abnormality",
+      "bronchitis": "Bronchial Respiratory Sound Abnormality",
+      "bronchial respiratory sound abnormality": "Bronchial Respiratory Sound Abnormality",
+      "copd": "Chronic Obstructive Pulmonary Disease",
+      "chronic obstructive pulmonary disease": "Chronic Obstructive Pulmonary Disease",
+      "healthy": "Normal Respiratory Sound Pattern",
+      "normal": "Normal Respiratory Sound Pattern",
+      "normal respiratory sound pattern": "Normal Respiratory Sound Pattern",
+      "pneumonia": "Pneumonia-compatible Respiratory Pattern",
+      "pneumonia-compatible respiratory pattern": "Pneumonia-compatible Respiratory Pattern"
+    };
+
+    const wavFile = document.getElementById("wavFile");
+    const dropZone = document.getElementById("dropZone");
+    const runBtn = document.getElementById("runBtn");
+    const clearFileBtn = document.getElementById("clearFileBtn");
+    const clearResultBtn = document.getElementById("clearResultBtn");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const fileName = document.getElementById("fileName");
+    const spectrogramModal = document.getElementById("spectrogramModal");
+    const closeSpectrogramModal = document.getElementById("closeSpectrogramModal");
+    const modalSpecImg = document.getElementById("modalSpecImg");
+
+    let historyItems = [];
+    let audioItems = [];
+
+    function escapeHtml(value) {
+      return String(value === undefined || value === null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function setStatus(type, text) {
+      statusDot.className = "dot" + (type ? " " + type : "");
+      statusText.textContent = text;
+    }
+
+    function mapClassName(name) {
+      const key = String(name || "").trim().toLowerCase();
+      return CLASS_MAP[key] || name || "-";
+    }
+
+    function formatFlag(flag) {
+      if (!flag) return "-";
+      return String(flag).replace(/_/g, " ").replace(/\\b\\w/g, function(c) { return c.toUpperCase(); });
+    }
+
+    function percent(v) {
+      if (typeof v !== "number" || !isFinite(v)) return "-";
+      return (v * 100).toFixed(2) + "%";
+    }
+
+    function fileToBase64(file) {
+      return new Promise(function(resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function() {
+          const result = reader.result || "";
+          resolve(String(result).split(",")[1] || "");
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function formatTime(value) {
+      if (!value) return "-";
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleString();
+    }
+
+    function adviceForClass(name) {
+      const key = String(name || "").toLowerCase();
+
+      if (key.includes("pneumonia")) {
+        return {
+          checks: "Check fever, cough, sputum, dyspnea, oxygen saturation, respiratory rate, temperature, and auscultation correlation.",
+          adjunct: "If pneumonia is clinically suspected, consider chest imaging and inflammatory markers such as CBC, CRP, or procalcitonin according to local practice.",
+          priority: "Early clinician review is recommended when abnormal vital signs, hypoxemia, or systemic symptoms are present."
+        };
+      }
+
+      if (key.includes("chronic obstructive") || key.includes("copd")) {
+        return {
+          checks: "Check chronic cough, sputum, dyspnea, wheeze, smoking or exposure history, known COPD history, oxygen saturation, respiratory rate, and auscultation.",
+          adjunct: "If obstructive airway disease is suspected, consider spirometry context, bronchodilator-response history, and baseline oxygenation.",
+          priority: "Clinician review is recommended to distinguish chronic baseline findings from acute exacerbation."
+        };
+      }
+
+      if (key.includes("asthma")) {
+        return {
+          checks: "Check episodic wheeze, cough, chest tightness, dyspnea, trigger exposure, prior asthma history, oxygen saturation, respiratory rate, and auscultation.",
+          adjunct: "If asthma is clinically suspected, consider peak-flow or spirometry context and bronchodilator-response history when appropriate.",
+          priority: "Clinician review is recommended when symptoms are active, oxygenation is abnormal, or respiratory distress is present."
+        };
+      }
+
+      if (key.includes("bronchial")) {
+        return {
+          checks: "Check cough, sputum, wheeze, rhonchi, airway secretion, dyspnea, oxygen saturation, respiratory rate, and auscultation correlation.",
+          adjunct: "Consider repeat recording if the signal is noisy; consider spirometry context if airway obstruction is suspected.",
+          priority: "Clinician review is recommended to determine whether the pattern reflects obstruction, secretion, or recording artifact."
+        };
+      }
+
+      if (key.includes("normal") || key.includes("healthy")) {
+        return {
+          checks: "Confirm recording quality and check whether symptoms, vital signs, or auscultation findings are discordant with the low-abnormal audio pattern.",
+          adjunct: "If symptoms persist despite a low-abnormal output, consider repeat recording or additional clinical assessment.",
+          priority: "Routine review may be appropriate unless symptoms or abnormal vital signs suggest otherwise."
+        };
+      }
+
+      return {
+        checks: "Check symptom duration, cough, sputum, wheeze, fever, dyspnea, oxygen saturation, respiratory rate, auscultation findings, and prior respiratory history.",
+        adjunct: "Choose adjunct examinations according to the clinical scenario.",
+        priority: "Manual clinician review is recommended."
+      };
+    }
+
+    function renderClinicalAdvice(name, r) {
+      const fallback = adviceForClass(name);
+      const checks = r && r.focused_checks ? r.focused_checks : fallback.checks;
+      const adjunct = r && r.suggested_adjunct_examinations ? r.suggested_adjunct_examinations : fallback.adjunct;
+      const priority = r && r.review_priority_text ? r.review_priority_text : fallback.priority;
+
+      document.getElementById("clinicalAdvice").innerHTML =
+        '<div class="advice-card"><strong>Focused Checks</strong><span>' + escapeHtml(checks) + '</span></div>' +
+        '<div class="advice-card"><strong>Suggested Adjunct Examinations</strong><span>' + escapeHtml(adjunct) + '</span></div>' +
+        '<div class="advice-card"><strong>Review Priority</strong><span>' + escapeHtml(priority) + '</span></div>';
+    }
+
+    function clearResultsOnly() {
+      document.getElementById("predClass").textContent = "-";
+      document.getElementById("confidence").textContent = "-";
+      document.getElementById("confidenceLevel").textContent = "-";
+      document.getElementById("abnormalProb").textContent = "-";
+      document.getElementById("reviewFlag").textContent = "-";
+      document.getElementById("reviewReason").textContent = "-";
+      document.getElementById("inferTime").textContent = "-";
+      document.getElementById("top3").innerHTML = '<div class="placeholder">No prediction yet.</div>';
+      document.getElementById("summaryText").textContent = "No summary yet.";
+      document.getElementById("summarySource").textContent = "-";
+      document.getElementById("geminiUsed").textContent = "-";
+      document.getElementById("clinicalAdvice").innerHTML =
+        '<div class="advice-card"><strong>Focused Checks</strong><span>No prediction yet.</span></div>' +
+        '<div class="advice-card"><strong>Suggested Adjunct Examinations</strong><span>No prediction yet.</span></div>' +
+        '<div class="advice-card"><strong>Review Priority</strong><span>No prediction yet.</span></div>';
+
+      const debugBox = document.getElementById("geminiDebugBox");
+      debugBox.style.display = "none";
+      debugBox.textContent = "";
+
+      const img = document.getElementById("specImg");
+      const placeholder = document.getElementById("specPlaceholder");
+      img.removeAttribute("src");
+      img.style.display = "none";
+      placeholder.style.display = "block";
+
+      modalSpecImg.removeAttribute("src");
+      spectrogramModal.classList.remove("open");
+      spectrogramModal.setAttribute("aria-hidden", "true");
+      setStatus("", "Ready");
+    }
+
+    function resetLoadedFile() {
+      wavFile.value = "";
+      fileName.textContent = "Choose WAV File";
+      setStatus("", "Ready");
+    }
+
+    function renderTop3(top3Json) {
+      const box = document.getElementById("top3");
+      let top3 = [];
+      try { top3 = JSON.parse(top3Json || "[]"); } catch (e) { top3 = []; }
+
+      if (!Array.isArray(top3) || top3.length === 0) {
+        box.innerHTML = '<div class="placeholder">No prediction yet.</div>';
+        return;
+      }
+
+      box.innerHTML = top3.map(function(item) {
+        const raw = item.class_raw ? "Raw: " + item.class_raw : "";
+        return '<div class="top3-item">' +
+          '<div class="rank">#' + escapeHtml(item.rank) + '</div>' +
+          '<div>' +
+            '<div class="top3-title">' + escapeHtml(mapClassName(item.class)) + '</div>' +
+            '<div class="top3-raw">' + escapeHtml(raw) + '</div>' +
+          '</div>' +
+          '<div class="top3-score">' + escapeHtml(percent(Number(item.score))) + '</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    function renderResult(r) {
+      const displayClass = mapClassName(r.predicted_class || r.primary_impression || r.predicted_class_raw || "-");
+
+      document.getElementById("predClass").textContent = displayClass;
+      document.getElementById("confidence").textContent = percent(Number(r.confidence));
+      document.getElementById("confidenceLevel").textContent = formatFlag(r.confidence_level || "-");
+      document.getElementById("abnormalProb").textContent = percent(Number(r.abnormal_probability));
+      document.getElementById("reviewFlag").textContent = formatFlag(r.review_flag || "-");
+      document.getElementById("reviewReason").textContent = formatFlag(r.review_reason || "-");
+      document.getElementById("inferTime").textContent = typeof r.inference_time_ms === "number" ? r.inference_time_ms.toFixed(2) + " ms" : "-";
+      document.getElementById("summaryText").textContent = r.summary_text || "No summary available.";
+      document.getElementById("summarySource").textContent = r.summary_source || "-";
+      document.getElementById("geminiUsed").textContent = r.gemini_used ? "Yes" : "No";
+
+      const debugBox = document.getElementById("geminiDebugBox");
+      if (!r.gemini_used && (r.gemini_error || r.gemini_debug)) {
+        debugBox.style.display = "block";
+        debugBox.textContent = "Gemini debug: " + (r.gemini_error || "") + "\\n" + JSON.stringify(r.gemini_debug || {}, null, 2);
+      } else {
+        debugBox.style.display = "none";
+        debugBox.textContent = "";
+      }
+
+      renderTop3(r.top3_json);
+      renderClinicalAdvice(displayClass, r);
+
+      const img = document.getElementById("specImg");
+      const placeholder = document.getElementById("specPlaceholder");
+      if (r.spectrogram_url) {
+        img.src = r.spectrogram_url + "?t=" + Date.now();
+        img.style.display = "block";
+        placeholder.style.display = "none";
+      } else {
+        img.removeAttribute("src");
+        img.style.display = "none";
+        placeholder.style.display = "block";
+      }
+    }
+
+    function openSpectrogramModal() {
+      const img = document.getElementById("specImg");
+      if (!img.src) return;
+      modalSpecImg.src = img.src;
+      spectrogramModal.classList.add("open");
+      spectrogramModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeModal() {
+      spectrogramModal.classList.remove("open");
+      spectrogramModal.setAttribute("aria-hidden", "true");
+    }
+
+    async function runAnalysis() {
+      if (!wavFile.files || !wavFile.files[0]) {
+        alert("Please choose a .wav file first.");
+        return;
+      }
+
+      const file = wavFile.files[0];
+      if (!file.name.toLowerCase().endsWith(".wav")) {
+        alert("Only .wav files are accepted.");
+        return;
+      }
+
+      runBtn.disabled = true;
+      setStatus("running", "Analyzing");
+
+      try {
+        const audio_base64 = await fileToBase64(file);
+        const response = await fetch("/api/infer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file_name: file.name, audio_base64: audio_base64 })
+        });
+
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Analysis failed");
+
+        renderResult(data.result || {});
+        setStatus("success", "Completed");
+        await fetchHistory();
+        await fetchDbView();
+      } catch (error) {
+        setStatus("error", "Failed");
+        alert("Analysis failed: " + error.message);
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    async function fetchHistory() {
+      const body = document.getElementById("historyBody");
+      body.innerHTML = '<tr><td colspan="8" class="placeholder">Loading...</td></tr>';
+
+      try {
+        const response = await fetch("/api/history");
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Failed to load history");
+        historyItems = data.items || [];
+        renderHistory();
+      } catch (error) {
+        body.innerHTML = '<tr><td colspan="8" class="placeholder">Failed: ' + escapeHtml(error.message) + '</td></tr>';
+      }
+    }
+
+    function renderHistory() {
+      const body = document.getElementById("historyBody");
+      const q = document.getElementById("historySearch").value.toLowerCase().trim();
+      const filtered = historyItems.filter(function(item) { return JSON.stringify(item).toLowerCase().includes(q); });
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="placeholder">No records found.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = filtered.map(function(item) {
+        return '<tr>' +
+          '<td>' + escapeHtml(item.id) + '</td>' +
+          '<td>' + escapeHtml(formatTime(item.inference_time)) + '</td>' +
+          '<td>' + escapeHtml(item.file_name || "") + '</td>' +
+          '<td>' + escapeHtml(mapClassName(item.predicted_class || item.true_class || "")) + '</td>' +
+          '<td>' + escapeHtml(percent(Number(item.confidence))) + '</td>' +
+          '<td>' + escapeHtml(item.model_name || "") + '</td>' +
+          '<td>' + escapeHtml(item.remark || "") + '</td>' +
+          '<td><button class="btn btn-danger" onclick="deleteHistoryRecord(' + Number(item.id) + ')">Delete</button></td>' +
+        '</tr>';
+      }).join("");
+    }
+
+    async function deleteHistoryRecord(id) {
+      if (!confirm("Delete history record #" + id + "?")) return;
+
+      try {
+        const response = await fetch("/api/result/" + id, { method: "DELETE" });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Delete failed");
+        await fetchHistory();
+        await fetchDbView();
+      } catch (error) {
+        alert("Delete failed: " + error.message);
+      }
+    }
+
+    async function deleteAllHistory() {
+      if (!confirm("Delete ALL history records? This action cannot be undone.")) return;
+
+      try {
+        const response = await fetch("/api/history/all", { method: "DELETE" });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Delete all failed");
+        await fetchHistory();
+        await fetchDbView();
+        alert("All history records deleted.");
+      } catch (error) {
+        alert("Delete all failed: " + error.message);
+      }
+    }
+
+    async function fetchDbStats() {
+      const response = await fetch("/api/db/stats");
+      const data = await response.json();
+      if (!data.ok) throw new Error(data.error || "Failed to load stats");
+      const stats = data.stats || {};
+      document.getElementById("statAudio").textContent = stats.audio_count || 0;
+      document.getElementById("statResults").textContent = stats.result_count || 0;
+      document.getElementById("statToday").textContent = stats.today_result_count || 0;
+    }
+
+    async function fetchAudioFiles() {
+      const body = document.getElementById("audioBody");
+      body.innerHTML = '<tr><td colspan="5" class="placeholder">Loading...</td></tr>';
+
+      try {
+        const response = await fetch("/api/audio-files");
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Failed to load audio files");
+        audioItems = data.items || [];
+        renderAudioFiles();
+      } catch (error) {
+        body.innerHTML = '<tr><td colspan="5" class="placeholder">Failed: ' + escapeHtml(error.message) + '</td></tr>';
+      }
+    }
+
+    function renderAudioFiles() {
+      const body = document.getElementById("audioBody");
+      const q = document.getElementById("audioSearch").value.toLowerCase().trim();
+      const filtered = audioItems.filter(function(item) { return JSON.stringify(item).toLowerCase().includes(q); });
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<tr><td colspan="5" class="placeholder">No audio records found.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = filtered.map(function(item) {
+        return '<tr>' +
+          '<td>' + escapeHtml(item.id) + '</td>' +
+          '<td>' + escapeHtml(item.file_name || "") + '</td>' +
+          '<td>' + escapeHtml(mapClassName(item.disease_type || "")) + '</td>' +
+          '<td>' + escapeHtml(item.file_path || "") + '</td>' +
+          '<td><button class="btn btn-danger" onclick="deleteAudioFile(' + Number(item.id) + ')">Delete</button></td>' +
+        '</tr>';
+      }).join("");
+    }
+
+    async function deleteAudioFile(id) {
+      if (!confirm("Delete audio file record #" + id + " and related prediction results?")) return;
+
+      try {
+        const response = await fetch("/api/audio/" + id, { method: "DELETE" });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || "Delete audio failed");
+        await fetchDbView();
+        await fetchHistory();
+      } catch (error) {
+        alert("Delete audio failed: " + error.message);
+      }
+    }
+
+    async function fetchDbView() {
+      try {
+        await fetchDbStats();
+        await fetchAudioFiles();
+      } catch (error) {
+        alert("Database refresh failed: " + error.message);
+      }
+    }
+
+    dropZone.addEventListener("click", function() { wavFile.click(); });
+    wavFile.addEventListener("change", function() {
+      if (wavFile.files && wavFile.files[0]) fileName.textContent = wavFile.files[0].name;
+    });
+
+    runBtn.addEventListener("click", runAnalysis);
+    clearFileBtn.addEventListener("click", resetLoadedFile);
+    clearResultBtn.addEventListener("click", clearResultsOnly);
+
+    document.getElementById("specImg").addEventListener("click", openSpectrogramModal);
+    closeSpectrogramModal.addEventListener("click", closeModal);
+    spectrogramModal.addEventListener("click", function(event) {
+      if (event.target === spectrogramModal) closeModal();
+    });
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Escape") closeModal();
+    });
+
+    document.getElementById("refreshHistoryBtn").addEventListener("click", fetchHistory);
+    document.getElementById("deleteAllHistoryBtn").addEventListener("click", deleteAllHistory);
+    document.getElementById("historySearch").addEventListener("input", renderHistory);
+    document.getElementById("refreshDbBtn").addEventListener("click", fetchDbView);
+    document.getElementById("audioSearch").addEventListener("input", renderAudioFiles);
+
+    document.querySelectorAll(".nav-btn").forEach(function(btn) {
+      btn.addEventListener("click", async function() {
+        document.querySelectorAll(".nav-btn").forEach(function(b) { b.classList.remove("active"); });
+        document.querySelectorAll(".view").forEach(function(v) { v.classList.remove("active"); });
+
+        btn.classList.add("active");
+        const viewId = btn.getAttribute("data-view");
+        document.getElementById(viewId).classList.add("active");
+
+        if (viewId === "historyView") await fetchHistory();
+        if (viewId === "databaseView") await fetchDbView();
+      });
+    });
+
+    window.deleteHistoryRecord = deleteHistoryRecord;
+    window.deleteAllHistory = deleteAllHistory;
+    window.deleteAudioFile = deleteAudioFile;
+
+    setStatus("", "Ready");
+  </script>
+</body>
+</html>`;
+
+return msg;
