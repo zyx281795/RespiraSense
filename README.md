@@ -321,20 +321,6 @@ python "ResNet18+Log-MelSpectrogram.py" "path\to\audio.wav"
   "inference_time_ms": 2264.33
 }
 ```
-
-### Web 介面
-
-啟動 Node-RED 後，前往 `http://localhost:1880/demo` 使用臨床展示介面。
-
----
-
-## 分工
-
-| 成員 | 負責項目 | 比例 |
-|------|----------|------|
-| 范姜士緯 | MySQL 資料庫建置、Node-RED、演算法開發 | 55% |
-| 張登勒 | 資料集前處理、簡報製作、UML 系統流程圖繪製 | 45% |
-
 ---
 
 ## 授權
