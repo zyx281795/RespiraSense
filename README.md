@@ -26,6 +26,7 @@
 
 本系統希望整合**人工智慧模型**、**Node-RED 流程自動化**、**MySQL 資料庫**與 **Google Gemini API**，建構一套智慧呼吸音輔助判讀系統。系統不僅能對呼吸音檔進行分類，也能輸出可信度、Top-3 預測結果、梅爾頻譜圖（Mel Spectrogram）與文字摘要，整合進完整的資訊系統流程中。
 
+### DATASET：https://www.kaggle.com/datasets/mohammedtawfikmusaed/asthma-detection-dataset-version-2
 ---
 
 ## 系統簡介
